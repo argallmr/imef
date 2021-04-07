@@ -10,8 +10,12 @@ import numpy as np
 # data = pd.read_pickle('train_data.pkl')
 data = pd.read_csv('dummy_data.csv')
 
-X = data[['B_X', 'B_Y', 'B_Z', 'EDP_X', 'EDP_Y', 'EDP_Z', 'EDI_X', 'EDI_Y', 'EDI_Z']]
+# Import data to use for regression
+X = data[['B_X', 'B_Y', 'B_Z', 'EDP_X', 'EDP_Y', 'EDP_Z']]
 y = data['IsEdi']
+
+# Import Edi Data to plot
+df_edi = data[['EDI_X', 'EDI_Y', 'EDI_Z']].copy()
 
 # Split data into test and train data
 train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.33, random_state=42)
@@ -67,6 +71,6 @@ fig.tight_layout()
 plt.show()
 
 # Plot on XY Plane
-chart_regression(test_x, test_y, norm_pred_y, 'Linear')
+chart_regression(test_x, test_y, norm_pred_y, df_edi, 'Linear')
 
 print("Complete!")

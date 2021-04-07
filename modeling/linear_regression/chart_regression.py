@@ -6,7 +6,7 @@ chart_regression.py - contains code that plots the confusion matrix on the edi x
 """
 
 
-def chart_regression(test_x, test_y, norm_pred_y, type):
+def chart_regression(test_x, test_y, norm_pred_y, df_edi, type):
 
     df_tp = pd.DataFrame()
     df_tn = pd.DataFrame()
@@ -17,16 +17,16 @@ def chart_regression(test_x, test_y, norm_pred_y, type):
     for i in range(0, len(test_y)):
         if test_y.iloc[i] == norm_pred_y[i] and test_y.iloc[i] == 1:
             # print("True Positive")
-            df_tp = df_tp.append(test_x.iloc[i])
+            df_tp = df_tp.append(df_edi.iloc[i])
         elif test_y.iloc[i] == norm_pred_y[i] and test_y.iloc[i] == 0:
             # print("True Negative")
-            df_tn = df_tn.append(test_x.iloc[i])
+            df_tn = df_tn.append(df_edi.iloc[i])
         elif test_y.iloc[i] != norm_pred_y[i] and test_y.iloc[i] == 1:
             #print("False Positive")
-            df_fp = df_fp.append(test_x.iloc[i])
+            df_fp = df_fp.append(df_edi.iloc[i])
         elif test_y.iloc[i] != norm_pred_y[i] and test_y.iloc[i] == 0:
             #print("False Negative")
-            df_fn = df_fn.append(test_x.iloc[i])
+            df_fn = df_fn.append(df_edi.iloc[i])
         else:
             print('Invalid Data Row')
 
@@ -43,7 +43,7 @@ def chart_regression(test_x, test_y, norm_pred_y, type):
 
     ax.set_xlabel('EDI X')
     ax.set_ylabel('EDI Y')
-    ax.set_title('MMS Data through ' + type + 'Regression to Detect EDI Data Points')
+    ax.set_title('MMS Data through ' + type + ' Regression to Detect EDI Data Points')
 
     ax.legend()
     ax.grid(True)

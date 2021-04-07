@@ -1,6 +1,7 @@
 from sklearn import linear_model
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
+from chart_regression import chart_regression
 import matplotlib.pyplot as plt
 import pandas as pd
 import xarray as xr
@@ -11,6 +12,9 @@ data = pd.read_csv('dummy_data.csv')
 
 X = data[['B_X', 'B_Y', 'B_Z', 'EDP_X', 'EDP_Y', 'EDP_Z']]
 y = data['IsEdi']
+
+# Import Edi Data to plot
+df_edi = data[['EDI_X', 'EDI_Y', 'EDI_Z']].copy()
 
 # Split data into test and train data
 train_x, test_x, train_y, test_y = train_test_split(X, y, test_size=0.33, random_state=42)
@@ -63,3 +67,6 @@ ax.set_title("Confusion Matrix Heat Map for Logistic Regression")
 fig.tight_layout()
 
 plt.show()
+
+# Plot on XY Plane
+chart_regression(test_x, test_y, norm_pred_y, df_edi, 'Logistic')
