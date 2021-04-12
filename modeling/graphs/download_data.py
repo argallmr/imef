@@ -52,7 +52,7 @@ mec_data = mec_data.rename({r_gse_vname: 'R_sc',  # convert R to polar
 mec_data = mec_data.assign_coords(R_sc_index=['Rx', 'Ry', 'Rz'],
                                   V_sc_index=['Vx', 'Vy', 'Vz'])
 
-# Interpolate to EDI times
+# Interpolate to EDP times
 #   - MEC velocity is smoothly and slowly varying so can be up sampled
 #   - FGM data is sampled the same or faster so can be sychronized/down sampled
 fgm_data = fgm_data.interp_like(edi_data)
