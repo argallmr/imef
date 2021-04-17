@@ -4,6 +4,8 @@ import numpy as np
 # Import formatted data
 df = pd.read_pickle('data.pkl')
 
+print(df)
+
 # Create the bins
 mlt_bins = [(i, i+1) for i in range(24)]
 r_bins = [(i, i+1) for i in range(1, 8)]

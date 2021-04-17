@@ -1,3 +1,6 @@
 
 *.pkl
 modeling/linear_regression/train_data.pkl
+modeling/graphs/data.pkl
+modeling/graphs/data.pkl
+modeling/graphs/binned.csv
