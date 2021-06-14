@@ -6,14 +6,14 @@ from matplotlib.patches import Wedge
 # Read the data file 6*24 = number of bins
 nr = 6
 nphi = 24
-df = pd.read_csv('binned.csv')
+df = pd.read_csv('polar_test.csv')
 print(df.head)
 
 # Create a coordinate grid
-phi = (2 * np.pi * df['MLT_MEAN'] / 24).to_numpy().reshape(nr, nphi)
-r = df['L_MEAN'].to_numpy().reshape(nr, nphi)
-Er = df['er'].to_numpy().reshape(nr, nphi)
-Ephi = df['eaz'].to_numpy().reshape(nr, nphi)
+phi = (2 * np.pi * df['MLT'] / 24).to_numpy().reshape(nr, nphi)
+r = df['L'].to_numpy().reshape(nr, nphi)
+Er = df['ER'].to_numpy().reshape(nr, nphi)
+Ephi = df['EAZ'].to_numpy().reshape(nr, nphi)
 
 # Convert to cartesian coordinates
 Ex = Er*np.cos(phi) - Ephi*np.sin(phi)
@@ -40,8 +40,10 @@ ax = axes[0,0]
 # Plot the electric field
 ax.quiver(phi, r, Ex, Ey)
 ax.set_xlabel("Electric Field")
-ax.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21'])
+ax.set_thetagrids(np.linspace(0, 360, 8), labels=['0', '3', '6', '9', '12', '15', '18', '21'])
 ax.set_theta_direction(1)
 
 # Create the Earth
 draw_earth(ax)
+
+plt.show()

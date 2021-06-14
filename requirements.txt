@@ -1,0 +1,11 @@
+numpy>=1.8
+requests>=2.22.0
+scipy>=1.4.1
+tqdm>=4.36.1
+matplotlib>=3.1.1
+cdflib
+pandas >= 1.0.3
+xarray >= 0.16.0"
+sklearn
+tensorflow >=1.13.1
+keras >=2.2.4

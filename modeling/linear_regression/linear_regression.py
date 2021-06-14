@@ -8,8 +8,8 @@ import xarray as xr
 import numpy as np
 
 data = pd.read_pickle('train_data.pkl')
-#data = pd.read_csv('dummy_data.csv')
 
+print(data)
 # Import data to use for regression
 X = data[['B_X', 'B_Y', 'B_Z', 'EDP_X', 'EDP_Y', 'EDP_Z']]
 y = data['IsEdi']
