@@ -1,6 +1,6 @@
 
 *.pkl
 modeling/linear_regression/train_data.pkl
-modeling/graphs/data.pkl
-modeling/graphs/data.pkl
-modeling/graphs/binned.csv
+modeling/graphs/Obsolete/data.pkl
+modeling/graphs/Obsolete/data.pkl
+modeling/graphs/9_10_15_to_9_16_2016.csv

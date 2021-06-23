@@ -1,100 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/modeling/testing/mean_std.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modeling/testing/output.txt" afterDir="false" />
+    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period.">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/IMEF.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/IMEF.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/binned.csv" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/binned.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/data.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/data.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/download_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/download_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/modeling.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/modeling.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/average_2d_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/average_3d_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/binned.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/data.nc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/data.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/data_manipulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/data_manipulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/download_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/format_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/modeling.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/polar.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/polar_bin.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/potential.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/modeling/linear_regression/train_data.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/linear_regression/train_data.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/testing/mean_std.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/testing/mean_std.py" afterDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
-  </component>
-  <component name="FileEditorManager">
-    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/modeling/graphs/download_data.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="595">
-              <caret line="35" column="22" selection-start-line="35" selection-start-column="22" selection-end-line="35" selection-end-column="22" />
-              <folding>
-                <element signature="e#0#21#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/modeling/linear_regression/data.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-408">
-              <caret line="56" column="21" lean-forward="true" selection-start-line="56" selection-start-column="21" selection-end-line="56" selection-end-column="21" />
-              <folding>
-                <element signature="e#0#21#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/modeling/testing/mean_std.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="51">
-              <caret line="3" column="18" lean-forward="true" selection-start-line="3" selection-start-column="18" selection-end-line="3" selection-end-column="18" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/modeling/testing/output.txt">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="85">
-              <caret line="5" column="33" lean-forward="true" selection-start-line="5" selection-start-column="33" selection-end-line="5" selection-end-column="33" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/README.md">
-          <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
-            <state split_layout="SPLIT">
-              <first_editor relative-caret-position="85">
-                <caret line="11" selection-start-line="11" selection-end-line="11" selection-end-column="32" />
-              </first_editor>
-              <second_editor />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/modeling/graphs/modeling.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="34">
-              <caret line="3" column="23" selection-start-line="3" selection-start-column="23" selection-end-line="3" selection-end-column="23" />
-              <folding>
-                <element signature="e#0#19#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/modeling/graphs/binned.csv">
-          <provider editor-type-id="csv-table-editor">
-            <state showInfoPanel="true" fixedHeaders="false" rowLines="3" />
-          </provider>
-          <provider selected="true" editor-type-id="csv-text-editor" />
-        </entry>
-      </file>
-    </leaf>
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -109,7 +39,20 @@
     </findStrings>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
@@ -133,6 +76,7 @@
     <option name="width" value="984" />
     <option name="height" value="1044" />
   </component>
+  <component name="ProjectId" id="1tRYhZC42IOpmPUQOaA1rAnvXLH" />
   <component name="ProjectView">
     <navigator currentView="Scope" currentSubView="Scope 'Project Files'; set:Project Files; class com.intellij.psi.search.scope.ProjectFilesScope" proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
@@ -163,24 +107,28 @@
       <pane id="ProjectPane" />
     </panes>
   </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../pymms" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/modeling/graphs" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs" />
+      <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\Obsolete" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\reference" />
+      <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\Obsolete" />
+      <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs" />
+    </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.store_efield_data">
     <configuration name="3.7" type="PythonConfigurationType" factoryName="Python">
       <module name="IMEF" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -202,7 +150,130 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="average_2d_data" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs/Obsolete" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/Obsolete/average_2d_data.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="plot_nc_data" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\plot_nc_data.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="potential" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\Obsolete\potential.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="store_efield_data" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\store_efield_data.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="xrpotential" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/xrpotential.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.3.7" />
+      <item itemvalue="Python.xrpotential" />
+      <item itemvalue="Python.potential" />
+      <item itemvalue="Python.average_2d_data" />
+      <item itemvalue="Python.plot_nc_data" />
+      <item itemvalue="Python.store_efield_data" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.store_efield_data" />
+        <item itemvalue="Python.plot_nc_data" />
+        <item itemvalue="Python.average_2d_data" />
+        <item itemvalue="Python.potential" />
+        <item itemvalue="Python.xrpotential" />
+      </list>
+    </recent_temporary>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="SvnConfiguration">
     <configuration />
   </component>
@@ -214,6 +285,14 @@
       <option name="presentableId" value="Default" />
       <updated>1616604644044</updated>
     </task>
+    <task id="LOCAL-00001" summary="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period.">
+      <created>1623700596164</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1623700596164</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -238,6 +317,22 @@
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
     </layout>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period." />
+    <option name="LAST_COMMIT_MESSAGE" value="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period." />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/modeling/linear_regression/dummy_data.csv">

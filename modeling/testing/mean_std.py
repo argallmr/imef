@@ -71,6 +71,8 @@ edp_data = edp_data.sortby('time')
 fgm_data = fgm_data.interp_like(edi_data)
 edp_data = edp_data.interp_like(edi_data)
 
+print(edi_data['E_GSE'][:,0])
+
 # Calculating the mean and standard deviation
 fgm_means, bin_edges, bin_num = stats.binned_statistic(edi_data['E_GSE'][:,0], fgm_data['B_GSE'][:,0], statistic='mean', bins=10)
 fgm_std, bin_edges, bin_num = stats.binned_statistic(edi_data['E_GSE'][:,0], fgm_data['B_GSE'][:,0], statistic='std', bins=10)
@@ -80,6 +82,6 @@ edp_std, bin_edges, bin_num = stats.binned_statistic(edi_data['E_GSE'][:,0], edp
 
 # Printing results
 
-print('FGM DATA\nMean\n', fgm_means, '\nStandard Deviation\n', fgm_std)
-print('EDP DATA\nMean\n', edp_means, '\nStandard Deviation\n', edp_std)
+#print('FGM DATA\nMean\n', fgm_means, '\nStandard Deviation\n', fgm_std)
+#print('EDP DATA\nMean\n', edp_means, '\nStandard Deviation\n', edp_std)
 
