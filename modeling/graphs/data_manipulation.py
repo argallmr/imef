@@ -6,7 +6,7 @@ def cart2polar(pos_cart, factor=1):
     '''
     Rotate cartesian position coordinates to polar coordinates
     '''
-    r = (np.sqrt(np.sum(pos_cart[:, [0, 1]] ** 2, axis=1)) / factor)
+    r = (np.sqrt(np.sum(pos_cart[:, [0, 1]] ** 2, axis=1)) * factor)
     phi = (np.arctan2(pos_cart[:, 1], pos_cart[:, 0]))
     pos_polar = xr.concat([r, phi], dim='polar').T.assign_coords({'polar': ['r', 'phi']})
 
