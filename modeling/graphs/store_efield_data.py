@@ -120,7 +120,7 @@ def create_imef_data(L, MLT, count, nL, nMLT):
     return imef_data
 
 
-def bin_data(imef_data, edi_data, nL, nMLT, binnum, created_file, filename):
+def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename):
     for ibin in range((nL + 2) * (nMLT + 2)):
         # `binned_statistic_2d` adds one bin before and one bin after the specified
         # bin `range` in each dimension. This means the number of bin specified by
@@ -145,6 +145,9 @@ def bin_data(imef_data, edi_data, nL, nMLT, binnum, created_file, filename):
 
         imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].mean(dim='time')
         imef_data['E_std'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].std(dim='time')
+
+    imef_data['L'] = imef_data['L'] + dL / 2
+    imef_data['MLT'] = imef_data['MLT'] + dMLT / 2
 
     if not created_file:
         # If this is the first run, create a file (or overwrite any existing file) called binned.nc
@@ -194,11 +197,11 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_data(nL, nMLT, dL, dMLT, imef_data):
+def plot_data(nL, nMLT, imef_data):
 
     # Create a coordinate grid
-    phi = (2 * np.pi * (imef_data['MLT'].values + dMLT/2) / 24).reshape(nL, nMLT)
-    r = imef_data['L'].values.reshape(nL, nMLT) + dL/2
+    phi = (2 * np.pi * (imef_data['MLT'].values) / 24).reshape(nL, nMLT)
+    r = imef_data['L'].values.reshape(nL, nMLT)
     Er = imef_data['E_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
     Ephi = imef_data['E_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
@@ -239,7 +242,7 @@ def main():
 
     # Start and end dates
     t0 = dt.datetime(2015, 9, 10, 0, 0, 0)
-    t1 = dt.datetime(2015, 9, 22, 0, 0, 0)
+    t1 = dt.datetime(2015, 9, 15, 0, 0, 0)
 
     # Finds each individual orbit within that time frame and sorts them into a dictionary
     orbits = api.mission_events('orbit', t0, t1, sc)
@@ -315,7 +318,7 @@ def main():
                 imef_data = create_imef_data(L, MLT, count, nL, nMLT)
 
                 # Average and bin the data into binned.nc
-                imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, created_file, filename)
+                imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename)
 
                 # If this is the first run, let the program know that the file has been created
                 # This is done so that any existing file called binned.nc is overwritten,
@@ -323,7 +326,7 @@ def main():
                 created_file = True
 
     # Plot the data
-    plot_data(nL, nMLT, dL, dMLT, imef_data)
+    plot_data(nL, nMLT, imef_data)
 
 
 if __name__ == '__main__':

@@ -11,11 +11,11 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_data(nL, nMLT, dL, dMLT, imef_data):
+def plot_data(nL, nMLT, imef_data):
 
     # Create a coordinate grid
-    phi = (2 * np.pi * (imef_data['MLT'].values + dMLT/2) / 24).reshape(nL, nMLT)
-    r = imef_data['L'].values.reshape(nL, nMLT) + dL/2
+    phi = (2 * np.pi * (imef_data['MLT'].values) / 24).reshape(nL, nMLT)
+    r = imef_data['L'].values.reshape(nL, nMLT)
     Er = imef_data['E_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
     Ephi = imef_data['E_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
@@ -59,7 +59,7 @@ def main():
     nMLT = len(MLT)
 
     imef_data = xr.open_dataset('binned.nc')
-    plot_data(nL, nMLT, dL, dMLT, imef_data)
+    plot_data(nL, nMLT, imef_data)
 
 
 if __name__ == '__main__':
