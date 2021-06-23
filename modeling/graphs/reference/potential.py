@@ -1,0 +1,52 @@
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+import xarray as xr
+from matplotlib.patches import Wedge
+
+# Read the data file 6*24 = number of bins
+nr = 30
+nphi = 24
+df = pd.read_csv('9_10_15_to_9_16_2016.csv')
+
+# Create a coordinate grid
+phi = (2 * np.pi * df['MLT'] / 24).to_numpy().reshape(nr, nphi)
+r = df['L'].to_numpy().reshape(nr, nphi)
+Er = df['er'].to_numpy().reshape(nr, nphi)
+Ephi = df['etheta'].to_numpy().reshape(nr, nphi)
+
+# Convert to cartesian coordinates
+Ex = Er * np.cos(phi) - Ephi * np.sin(phi)
+Ey = Er * np.sin(phi) + Ephi * np.cos(phi)
+
+# Convert to cartesian vectors
+x = r * np.cos(phi)
+y = r * np.sin(phi)
+
+print(-1e6/(6.3712e6*2))
+
+def draw_earth(ax):
+    '''
+    A handy function for drawing the Earth in a set of Polar Axes
+    '''
+    ax.fill_between(np.linspace(-np.pi / 2, np.pi / 2, 30), 0, np.ones(30), color='k')
+    ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
+    plt.show()
+
+
+# Plot the data
+fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
+
+# Plot the electric field
+ax = axes[0, 0]
+
+# Plot the electric field
+ax.quiver(phi, r, Ex, Ey)
+ax.set_xlabel("Electric Field")
+ax.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
+ax.set_theta_direction(1)
+
+# Create the Earth
+draw_earth(ax)
+
+print("hai")
