@@ -1,25 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period.">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/IMEF.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/IMEF.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/average_2d_data.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/average_3d_data.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/binned.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/data.nc" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/data.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/data_manipulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/data_manipulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/download_data.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/format_data.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/modeling.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/polar.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/polar_bin.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/graphs/potential.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/train_data.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/linear_regression/train_data.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modeling/testing/mean_std.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/testing/mean_std.py" afterDir="false" />
+    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="Added to reference">
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/csv/bins_loc.csv" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/reference/csv/bins_loc.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/csv/mlt_loc.csv" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/reference/csv/mlt_loc.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/csv/r_loc.csv" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/reference/csv/r_loc.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/modeling.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/reference/modeling.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/polar.py" beforeDir="false" afterPath="$PROJECT_DIR$/modeling/graphs/reference/polar.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -292,7 +279,28 @@
       <option name="project" value="LOCAL" />
       <updated>1623700596164</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="updated data_manipulation.py to have a factor in cart2polar&#10;&#10;created store_efield_data, which creates electric field data, stores it into a file called binned.nc, and plots the resulting data&#10;&#10;created plot_nc_data, which plots electric field data from a .nc file&#10;&#10;created the reference folder, which contains unused/old code that could be useful later on">
+      <created>1624461647833</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1624461647833</updated>
+    </task>
+    <task id="LOCAL-00003" summary="created store_efield_data, which creates electric field data, stores it into a file called binned.nc, and plots the resulting data&#10;&#10;created plot_nc_data, which plots electric field data from a .nc file&#10;&#10;created the reference folder, which contains unused/old code that could be useful later on">
+      <created>1624462012661</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1624462012661</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Added to reference">
+      <created>1624462133270</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1624462133270</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -332,7 +340,10 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period." />
-    <option name="LAST_COMMIT_MESSAGE" value="modified download_data.py to include 2-dimensional and 3-dimensional download. Changed MLT_sc to be MLT data instead of MLAT data&#10;&#10;reorganized functions into data_manipulation.py. &#10;&#10;created average_2d_data.py and average_3d_data.py to create the average 2D and 3D data, respectively, from a given time period." />
+    <MESSAGE value="updated data_manipulation.py to have a factor in cart2polar&#10;&#10;created store_efield_data, which creates electric field data, stores it into a file called binned.nc, and plots the resulting data&#10;&#10;created plot_nc_data, which plots electric field data from a .nc file&#10;&#10;created the reference folder, which contains unused/old code that could be useful later on" />
+    <MESSAGE value="created store_efield_data, which creates electric field data, stores it into a file called binned.nc, and plots the resulting data&#10;&#10;created plot_nc_data, which plots electric field data from a .nc file&#10;&#10;created the reference folder, which contains unused/old code that could be useful later on" />
+    <MESSAGE value="Added to reference" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added to reference" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/modeling/linear_regression/dummy_data.csv">

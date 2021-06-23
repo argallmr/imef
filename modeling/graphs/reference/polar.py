@@ -3,9 +3,9 @@ import numpy as np
 
 df = pd.read_csv('9_10_15_to_9_16_2016.csv')
 
-df_bins_loc = pd.read_csv('../csv/bins_loc.csv')
-df_mlt = pd.read_csv('../csv/mlt_loc.csv')
-df_r = pd.read_csv('../csv/r_loc.csv')
+df_bins_loc = pd.read_csv('csv/bins_loc.csv')
+df_mlt = pd.read_csv('csv/mlt_loc.csv')
+df_r = pd.read_csv('csv/r_loc.csv')
 
 er_list = []
 eaz_list = []

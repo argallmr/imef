@@ -18,9 +18,9 @@ pd_r_bins = pd.IntervalIndex.from_tuples(r_bins)
 df['BIN_MLT'] = pd.cut(df['MLT'], pd_mlt_bins)
 df['BIN_R'] = pd.cut(df['L'], pd_r_bins)
 
-df_bins_loc = pd.read_csv('../csv/bins_loc.csv')
-df_mlt = pd.read_csv('../csv/mlt_loc.csv')
-df_r = pd.read_csv('../csv/r_loc.csv')
+df_bins_loc = pd.read_csv('csv/bins_loc.csv')
+df_mlt = pd.read_csv('csv/mlt_loc.csv')
+df_r = pd.read_csv('csv/r_loc.csv')
 
 means = []
 
