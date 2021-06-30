@@ -1,5 +1,5 @@
 import datetime as dt
-from download_data import download_data_2d
+from download_data_izzak import download_data_2d
 from data_manipulation import average_data_2d
 
 
