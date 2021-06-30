@@ -1,11 +1,15 @@
 import numpy as np
 import datetime as dt
-from matplotlib import pyplot as plt
 from scipy.stats import binned_statistic_2d
 import xarray as xr
 from pymms.sdc import mrmms_sdc_api as api
 import data_manipulation as dm
 from pymms.data import edi, util, fgm
+import argparse
+import plot_nc_data as xrplot
+
+# For debugging purposes
+# np.set_printoptions(threshold=np.inf)
 
 
 def get_edi_data(sc, mode, level, ti, te):
@@ -75,7 +79,7 @@ def get_mec_data(sc, mode, level, ti, te):
 
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # E = v x B, 1e-3 converts units to mV/m
-    E_sc = 1e-3 * np.cross(mec_data['V_sc'], fgm_data['B'][:, :3])
+    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B'][:, :3])
 
     # Make into a DataArray to subtract the data easier
     E_sc = xr.DataArray(E_sc,
@@ -85,7 +89,18 @@ def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
                         name='E_sc')
 
     # Remove E_sc from the measured electric field
-    edi_data['E_GSM'] = edi_data['E_GSM'] - E_sc
+    edi_data['E_GSE'] = edi_data['E_GSE'] - E_sc
+
+    return edi_data
+
+
+def remove_corot_efield(edi_data, mec_data, RE):
+    E_corot = (-92100 * RE / np.linalg.norm(mec_data['R_sc'], ord=2,
+                                            axis=mec_data['R_sc'].get_axis_num('R_sc_index')) ** 2)
+
+    E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
+
+    edi_data = edi_data - E_corot
 
     return edi_data
 
@@ -94,9 +109,11 @@ def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
     # Count returns the amount of data points that fell in each bin
     # x_edge and y_edge represent the start and end of each of the bins in terms of L and MLT
     # binnum returns the bin number given to each data point in the dataset
+    # values is not called when using statistic='count', but is still required.
+    # Since E_GSE is in edi_data whether or not the user wants polar, it will work either way.
     count, x_edge, y_edge, binnum = binned_statistic_2d(x=mec_data['L'],
                                                         y=mec_data['MLT'],
-                                                        values=edi_data['E_polar'].loc[:, 'r'],
+                                                        values=edi_data['E_GSE'].loc[:, 'Ex'],
                                                         statistic='count',
                                                         bins=[nL, nMLT],
                                                         range=[L_range, MLT_range])
@@ -104,23 +121,35 @@ def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
     return count, x_edge, y_edge, binnum
 
 
-def create_imef_data(L, MLT, count, nL, nMLT):
+def create_imef_data(L, MLT, count, nL, nMLT, polar):
     # Creating an empty Dataset where the averaged data values will go
-    L2, MLT2 = xr.broadcast(L, MLT)
-    L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
-    MLT2 = MLT2.rename({'L': 'iL', 'MLT': 'iMLT'})
-    imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'polar': ['r', 'phi']})
+    if polar:
+        L2, MLT2 = xr.broadcast(L, MLT)
+        L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
+        MLT2 = MLT2.rename({'L': 'iL', 'MLT': 'iMLT'})
+        imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'polar': ['r', 'phi']})
 
-    imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-    imef_data['E_mean'] = xr.DataArray(np.zeros((nL, nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
-                                       coords={'L': L2, 'MLT': MLT2})
-    imef_data['E_std'] = xr.DataArray(np.zeros((nL, nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
-                                      coords={'L': L2, 'MLT': MLT2})
+        imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_mean'] = xr.DataArray(np.zeros((nL, nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+                                           coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_std'] = xr.DataArray(np.zeros((nL, nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+                                          coords={'L': L2, 'MLT': MLT2})
+    else:
+        L2, MLT2 = xr.broadcast(L, MLT)
+        L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
+        MLT2 = MLT2.rename({'L': 'iL', 'MLT': 'iMLT'})
+        imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'cartesian': ['x', 'y', 'z']})
+
+        imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_mean'] = xr.DataArray(np.zeros((nL, nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+                                           coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_std'] = xr.DataArray(np.zeros((nL, nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+                                          coords={'L': L2, 'MLT': MLT2})
 
     return imef_data
 
 
-def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename):
+def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename, polar):
     for ibin in range((nL + 2) * (nMLT + 2)):
         # `binned_statistic_2d` adds one bin before and one bin after the specified
         # bin `range` in each dimension. This means the number of bin specified by
@@ -143,18 +172,22 @@ def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, file
         if sum(bool_idx) == 0:
             continue
 
-        imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].mean(dim='time')
-        imef_data['E_std'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].std(dim='time')
+        if polar:
+            imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].mean(dim='time')
+            imef_data['E_std'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].std(dim='time')
+        else:
+            imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_GSE'][bool_idx, :].mean(dim='time')
+            imef_data['E_std'].loc[ir, ic, :] = edi_data['E_GSE'][bool_idx, :].std(dim='time')
 
     imef_data['L'] = imef_data['L'] + dL / 2
     imef_data['MLT'] = imef_data['MLT'] + dMLT / 2
 
     if not created_file:
-        # If this is the first run, create a file (or overwrite any existing file) called binned.nc
+        # If this is the first run, create a file (or overwrite any existing file) with the name defined by filename
         imef_data.to_netcdf(filename)
     else:
-        # If this is not the first run, average the data in the file binned.nc with the new imef_data
-        # And export the new averaged data to binned.nc
+        # If this is not the first run, average the data in the file with the new imef_data
+        # And export the new averaged data to the existing file
         imef_data = average_data(imef_data, filename)
         imef_data.to_netcdf(filename)
 
@@ -167,14 +200,16 @@ def average_data(imef_data, filename):
 
     # Calculate weighted mean of incoming and existing data
     average_mean = (imef_data['count'] * imef_data['E_mean'] + file_data['count'] * file_data['E_mean']) / (
-                imef_data['count'] + file_data['count'])
+            imef_data['count'] + file_data['count'])
 
     # For any bins that have 0 data points, the above divides by 0 and returns NaN. Change the NaN's to 0's
     average_mean = average_mean.fillna(0)
 
     # Calculate weighted standard deviation of incoming and existing data
-    average_std = (imef_data['count'] * (imef_data['E_std'] ** 2 + (imef_data['E_mean'] - average_mean) ** 2) + file_data['count'] * (
-            file_data['E_std'] ** 2 + (file_data['E_mean'] - average_mean) ** 2)) / (imef_data['count'] + file_data['count'])
+    average_std = (imef_data['count'] * (imef_data['E_std'] ** 2 + (imef_data['E_mean'] - average_mean) ** 2) +
+                   file_data['count'] * (
+                           file_data['E_std'] ** 2 + (file_data['E_mean'] - average_mean) ** 2)) / (
+                          imef_data['count'] + file_data['count'])
 
     average_std = average_std.fillna(0)
 
@@ -189,67 +224,48 @@ def average_data(imef_data, filename):
     return imef_data
 
 
-def draw_earth(ax):
-    '''
-    A handy function for drawing the Earth in a set of Polar Axes
-    '''
-    ax.fill_between(np.linspace(-np.pi / 2, np.pi / 2, 30), 0, np.ones(30), color='k')
-    ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
-
-
-def plot_data(nL, nMLT, imef_data):
-
-    # Create a coordinate grid
-    phi = (2 * np.pi * (imef_data['MLT'].values) / 24).reshape(nL, nMLT)
-    r = imef_data['L'].values.reshape(nL, nMLT)
-    Er = imef_data['E_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
-    Ephi = imef_data['E_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
-
-    # Convert to cartesian coordinates
-    # Scaling the vectors doesn't work correctly unless this is done.
-    Ex = Er * np.cos(phi) - Ephi * np.sin(phi)
-    Ey = Er * np.sin(phi) + Ephi * np.cos(phi)
-
-    # Plot the data
-    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
-
-    # Plot the electric field
-    # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
-    # May need to be changed when more data points are present
-    ax1 = axes[0, 0]
-    ax1.quiver(phi, r, Ex, Ey, scale=10)
-    ax1.set_xlabel("Electric Field")
-    ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
-    ax1.set_theta_direction(1)
-
-    # Draw the earth
-    draw_earth(ax1)
-
-    # Plot the number of data points in each bin
-    ax2 = axes[0, 1]
-    ax2.set_xlabel("Count")
-    im = ax2.pcolormesh(phi, r, imef_data['count'].data, cmap='YlOrRd', shading='auto')
-    fig.colorbar(im, ax=ax2)
-
-    plt.show()
-
 def main():
+    # Collect Arguments
+    parser = argparse.ArgumentParser(
+        description='Download EDI data, average and bin the data by distance and orientation (L and MLT), '
+                    'and store the data into a netCDF (.nc) file'
+    )
+
+    parser.add_argument('sc', type=str, help='Spacecraft Identifier')
+
+    parser.add_argument('mode', type=str, help='Data rate mode')
+
+    parser.add_argument('level', type=str, help='Data level')
+
+    parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
+
+    parser.add_argument('end_date', type=str, help='End date of the data interval: ''"YYYY-MM-DDTHH:MM:SS""')
+
+    parser.add_argument('filename', type=str, help='Output file name')
+
+    parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
+
+    # If the polar plot is updated to spherical, update this note (and maybe change -p to -s)
+    parser.add_argument('-p', '--polar', help='Convert the electric field values to polar', action='store_true')
+
+    args = parser.parse_args()
+
     # Set up variables
     RE = 6371  # km. This is the conversion from km to Earth radii
-    sc = 'mms1'  # Chosen spacecraft
-    mode = 'srvy'  # Chosen data type
-    level = 'l2'  # Chosen level
+    sc = args.sc  # Chosen spacecraft
+    mode = args.mode  # Chosen data type
+    level = args.level  # Chosen level
 
     # Start and end dates
-    t0 = dt.datetime(2015, 9, 10, 0, 0, 0)
-    t1 = dt.datetime(2015, 9, 15, 0, 0, 0)
+    t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
+    t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
 
     # Finds each individual orbit within that time frame and sorts them into a dictionary
     orbits = api.mission_events('orbit', t0, t1, sc)
 
     # Ranges for L and MLT values to be binned for
-    L_range = (0, 12) # RE
-    MLT_range = (0, 24) # Hours
+    L_range = (4, 10)  # RE
+    MLT_range = (0, 24)  # Hours
 
     # Size of the L and MLT bins
     dL = 1  # RE
@@ -264,7 +280,7 @@ def main():
     nMLT = len(MLT)
 
     # Name of the file where the data will be stored
-    filename = 'binned.nc'
+    filename = args.filename
 
     # Boolean containing whether the file has been created
     created_file = False
@@ -286,10 +302,16 @@ def main():
             # Read MEC data
             mec_data = get_mec_data(sc, mode, level, ti, te)
 
+            # There are times where x, y, and z are copied, but the corresponding values are not, resulting in 6 coordinates
+            # This throws an error when trying to computer the cross product in remove_spacecraft_efield, so raise an error here if this happens
+            # Only seems to happen on one day, 12/18/16
+            if len(mec_data["V_sc_index"]) != 3:
+                raise ValueError("There should be 3 coordinates in V_sc_index")
+
         except Exception as ex:
             # Download will return an error when there is no data in the files that are being read.
             # Catch the error and print it out
-            print('Failed because', ex)
+            print('Failed: ', ex)
         else:
             # Make sure that the data file is not empty
             if edi_data.time.size != 0:
@@ -302,12 +324,16 @@ def main():
                 # The spacecraft creates its own electric field and must be removed from the total calculations
                 edi_data = remove_spacecraft_efield(edi_data, fgm_data, mec_data)
 
-                # Convert MEC and EDI data to polar coordinates
-                # Factor converts the MEC data from kilometers to RE
-                mec_data['r_polar'] = dm.cart2polar(mec_data['R_sc'], factor=RE)
-                edi_data['E_polar'] = (dm.rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index')
-                                       .assign_coords({'polar': ['r', 'phi']})
-                                       )
+                # Remove the corotation electric field
+                edi_data = remove_corot_efield(edi_data, mec_data, RE)
+
+                if args.polar:
+                    # Convert MEC and EDI data to polar coordinates
+                    # Factor converts the MEC data from kilometers to RE
+                    mec_data['r_polar'] = dm.cart2polar(mec_data['R_sc'], factor=1/RE)
+                    edi_data['E_polar'] = (dm.rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index')
+                                           .assign_coords({'polar': ['r', 'phi']})
+                                           )
 
                 # Prepare to average and bin the data
                 count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT,
@@ -315,18 +341,24 @@ def main():
                                                                       MLT_range)
 
                 # 2D spacial coordinates
-                imef_data = create_imef_data(L, MLT, count, nL, nMLT)
+                imef_data = create_imef_data(L, MLT, count, nL, nMLT, args.polar)
 
-                # Average and bin the data into binned.nc
-                imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename)
+                # Average and bin the data into a file called filename
+                imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename,
+                                     args.polar)
 
                 # If this is the first run, let the program know that the file has been created
-                # This is done so that any existing file called binned.nc is overwritten,
+                # This is done so that any existing file with the same name as filename is overwritten,
                 # and the new data is not averaged into any existing data from previous runs
                 created_file = True
 
-    # Plot the data
-    plot_data(nL, nMLT, imef_data)
+    # Plot the data, unless specified otherwise
+    if not args.no_show:
+        # If the user chose to plot edi data in polar coordinates, do so. Otherwise plot in cartesian
+        if args.polar:
+            xrplot.plot_polar_data(nL, nMLT, imef_data)
+        else:
+            xrplot.plot_cartesian_data(nL, nMLT, imef_data)
 
 
 if __name__ == '__main__':
