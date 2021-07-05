@@ -114,6 +114,8 @@ def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, file
             imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_GSE'][bool_idx, :].mean(dim='time')
             imef_data['E_std'].loc[ir, ic, :] = edi_data['E_GSE'][bool_idx, :].std(dim='time')
 
+    # Each bin goes from x to x+dL, but the index associating those values only starts at the beginning of the bin, which is misleading
+    # Change the index to be in the middle of the bin
     imef_data['L'] = imef_data['L'] + dL / 2
     imef_data['MLT'] = imef_data['MLT'] + dMLT / 2
 
@@ -142,9 +144,8 @@ def average_data(imef_data, filename):
 
     # Calculate weighted standard deviation of incoming and existing data
     average_std = (imef_data['count'] * (imef_data['E_std'] ** 2 + (imef_data['E_mean'] - average_mean) ** 2) +
-                   file_data['count'] * (
-                           file_data['E_std'] ** 2 + (file_data['E_mean'] - average_mean) ** 2)) / (
-                          imef_data['count'] + file_data['count'])
+                   file_data['count'] * (file_data['E_std'] ** 2 + (file_data['E_mean'] - average_mean) ** 2)) / \
+                  (imef_data['count'] + file_data['count'])
 
     average_std = average_std.fillna(0)
 
@@ -195,8 +196,8 @@ def main():
     t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
     t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
 
-    # Finds each individual orbit within that time frame and sorts them into a dictionary
-    orbits = api.mission_events('orbit', t0, t1, sc)
+    # A datetime number to increment the dates by one day, but without extending into the next day
+    one_day = dt.timedelta(days=1) - dt.timedelta(microseconds=1)
 
     # Ranges for L and MLT values to be binned for
     L_range = (4, 10)  # RE
@@ -204,7 +205,7 @@ def main():
 
     # Size of the L and MLT bins
     dL = 1  # RE
-    dMLT = 1  # Hours (Does this catch the last bin values?)
+    dMLT = 1  # Hours
 
     # DataArrays with desired L and MLT bins
     L = xr.DataArray(np.arange(L_range[0], L_range[1], dL), dims='L')
@@ -222,10 +223,20 @@ def main():
 
     # Download and process the data separately for each individual orbit,
     # So loop through every value in orbits
-    for orbit_count in range(len(orbits['tstart'])):
-        # Selects the start and end dates from the orbits dictionary
-        ti = orbits['tstart'][orbit_count]
-        te = orbits['tend'][orbit_count]
+    while t0 < t1:
+        # Assign the start time
+        ti = t0
+
+        # Determine the time difference between ti and midnight. Only will be a non-zero number on the first run through the loop
+        timediff = dt.datetime.combine(dt.date.min, ti.time()) - dt.datetime.min
+
+        # Assign the end date. timediff is used so that data is only downloaded from 1 day per run through the loop, which prevents bugs from appearing
+        te = ti + one_day - timediff
+
+        # If te were to extend past the desired end date, make te the desired end date
+        if te > t1:
+            te = t1
+
         print(ti, '%%', te)
         try:
             # Read EDI data
@@ -267,15 +278,12 @@ def main():
                     # Factor converts the MEC data from kilometers to RE
                     mec_data['r_polar'] = dm.cart2polar(mec_data['R_sc'], factor=1/RE)
                     edi_data['E_polar'] = (dm.rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index')
-                                           .assign_coords({'polar': ['r', 'phi']})
-                                           )
+                                           .assign_coords({'polar': ['r', 'phi']}))
 
                 # Prepare to average and bin the data
-                count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT,
-                                                                      L_range,
-                                                                      MLT_range)
+                count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range)
 
-                # 2D spacial coordinates
+                # Create the empty dataset
                 imef_data = create_imef_data(L, MLT, count, nL, nMLT, args.polar)
 
                 # Average and bin the data into a file called filename
@@ -286,6 +294,9 @@ def main():
                 # This is done so that any existing file with the same name as filename is overwritten,
                 # and the new data is not averaged into any existing data from previous runs
                 created_file = True
+
+        # Increment the start day by an entire day, so that the next run in the loop starts on the next day
+        t0 = ti + dt.timedelta(days=1) - timediff
 
     # Plot the data, unless specified otherwise
     if not args.no_show:
