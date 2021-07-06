@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 # When printing out xr[variable].values, says print out every value
 np.set_printoptions(threshold=np.inf)
 
+
 def get_A(min_Lvalue, max_Lvalue):
     # E=AΦ
     # A=-⛛ (-1*Gradient)
@@ -73,6 +74,7 @@ def get_A(min_Lvalue, max_Lvalue):
 
     return A
 
+
 def get_A_row(L, MLT=0, other=0):
     return 48 * L + 2 * MLT + other
 
@@ -83,19 +85,57 @@ def get_A_col(L, MLT=0, other=0):
 
 def get_C(min_Lvalue, max_Lvalue):
     # C is the laplacian, or the second derivative matrix. It is used to smooth the E=AΦ relation when solving the inverse problem
-    # The overall procedure used to find A is used again here (reverse engineering the values of A), however there are more and different values here
+    # The overall procedure used to find A is used again here (reverse engineering the values of A), however there are more values per row
     # Also, the central difference operator is not used here, so there are no halving of values
     # For the example y=Cx: y(L=6, MLT=12) = x(L=5, 12 MLT)+x(L=7, 12 MLT)+x(L=6, 11 MLT)+x(L=6, 13 MLT)-4*x(L=6, 12 MLT)
 
     # Like A, the edge cases must be accounted for. While the MLT edge cases can be handled the same way as in A, there are now edge cases in L.
     # The L edge cases are handled by **ignoring the lower values apparently**
-    # For example, if L=4 was the lowest value measured, then y=x(L=5, 0 MLT)+x(L=4, 23 MLT)+x(L=4, 1 MLT)-4*x(L=4, 0 MLT)
+    # For example, if L=4 was the lowest L value measured, then y=x(L=5, 0 MLT)+x(L=4, 23 MLT)+x(L=4, 1 MLT)-4*x(L=4, 0 MLT)
+
+    # But, because C is a square matrix, we can use a different, much easier method to create this matrix
+    # From the above example, we know that every value down the diagonal is -4. So we can use np.diag(np.ones(dimension)) to make a square matrix with ones across the diagonal and 0 elsewhere
+    # Multiplying that by -4 gives us all the -4 values we want.
+    # We can use the same method to create a line of ones one above the diagonal by using np.diag(np.ones(dimension-1), 1)
+    # The above method can be refactored to create a line of ones across any diagonal of the matrix
+    # So we just create a couple lines of ones and add them all together to create the C matrix
 
     L_range = int(max_Lvalue - min_Lvalue + 1)
+    MLT = 24
 
-    C = np.zeros((24 * (L_range + 1), 24 * (L_range + 1)))
+    # For the example y(L=6, MLT=12), this creates the -4*x(L=6, MLT=12)
+    minusfour = -4 * np.diag(np.ones(MLT * (L_range + 1)))
 
+    # These create the x(L=6, MLT=13) and x(L=6, MLT=11) respectively
+    MLT_ones = np.diag(np.ones(MLT * (L_range + 1) - 1), 1)
+    moreMLT_ones = np.diag(np.ones(MLT * (L_range + 1) - 1), -1)
 
+    # These create the x(L=7, MLT=12) and x(L=5, MLT=12) respectively
+    L_ones = np.diag(np.ones(MLT * (L_range + 1) - MLT), MLT)
+    moreL_ones = np.diag(np.ones(MLT * (L_range + 1) - MLT), -MLT)
+
+    # Add the ones matrices and create C
+    C = minusfour + MLT_ones + moreMLT_ones + L_ones + moreL_ones
+
+    # Nicely, this method handles the edge L cases for us, so we don't have to worry about those.
+    # However we do need to handle the edge MLT cases, since both MLT=0 and MLT=23 are incorrect as is
+
+    # This loop fixes all the edge cases except for the very first and very last row in C, as they are fixed differently than the rest
+    for counter in range(1, L_range+1):
+        # Fixes MLT=23
+        C[MLT * counter - 1][MLT*counter] = 0
+        C[MLT * counter - 1][MLT*(counter-1)] = 1
+
+        # Fixes MLT=0 at the L value 1 higher than the above statement
+        C[MLT * counter][MLT * counter - 1] = 0
+        C[MLT * counter][MLT * (counter+1) - 1] = 1
+
+    # Fixes the first row
+    C[0][MLT-1] = 1
+    # Fixes the last row
+    C[MLT*(L_range+1)-1][MLT*L_range] = 1
+
+    print(C)
 
     return C
 
@@ -109,22 +149,23 @@ def main():
     max_Lvalue = imef_data['L'][-1, 0].values
 
     # Find the number of bins relative to L and MLT
-    nL=int(max_Lvalue - min_Lvalue + 1)
-    nMLT=24
+    # nL is the number of L values in E, not Φ. So there will be nL+1 in places, and this
+    nL = int(max_Lvalue - min_Lvalue + 1)
+    nMLT = 24
 
     # Get the electric field data and make them into vectors
     E_r = imef_data['E_mean'][:, :, 0].values.flatten()
     E_az = imef_data['E_mean'][:, :, 1].values.flatten()
 
     # Create the number of elements that the potential will have
-    nElements = 24*int(max_Lvalue - min_Lvalue + 1)
-    E = np.zeros(2*nElements)
+    nElements = 24 * int(max_Lvalue - min_Lvalue + 1)
+    E = np.zeros(2 * nElements)
 
     # Reformat E_r and E_az so that they are combined into 1 vector following the format
     # [E_r(L=4, MLT=0), E_az(L=4, MLT=0), E_r(L=4, MLT=1), E_az(L=4, MLT=1), ... E_r(L=5, MLT=0), E_az(L=5, MLT=0), ...]
     for index in range(0, nElements):
-        E[2*index] = E_r[index]
-        E[2*index+1] = E_az[index]
+        E[2 * index] = E_r[index]
+        E[2 * index + 1] = E_az[index]
 
     # Create the A matrix
     A = get_A(min_Lvalue, max_Lvalue)
@@ -138,7 +179,7 @@ def main():
     # Solve the inverse problem according to the equation in Matsui 2004 and Korth 2002
     # V=(A^T * A + γ * C^T * C)^-1 * E
     v = np.dot(np.dot(np.linalg.inv(np.dot(A.T, A) + gamma * np.dot(C.T, C)), A.T), E)
-    v = v.reshape(nL, nMLT)
+    v = v.reshape(nL+1, nMLT)
 
 
 if __name__ == '__main__':
