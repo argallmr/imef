@@ -12,6 +12,53 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data
 # np.set_printoptions(threshold=np.inf)
 
 
+def prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT):
+    RE = 6371  # km. This is the conversion from km to Earth radii
+
+    # The name of the file where the data will be stored
+    filename = args.filename
+    # Whether the user wants the data in polar coordinates or not
+    polar = args.polar
+
+    # Make sure that the data file is not empty
+    if edi_data.time.size != 0:
+        # EDI, FGM, and MEC data all have a different number of data points at different times.
+        # EDI has the lowest amount of data points, so take all the data points at the times EDI has
+        # and use those points for FGM and MEC data
+        fgm_data = fgm_data.interp_like(edi_data)
+        mec_data = mec_data.interp_like(edi_data)
+
+        # The spacecraft creates its own electric field and must be removed from the total calculations
+        edi_data = remove_spacecraft_efield(edi_data, fgm_data, mec_data)
+
+        # Remove the corotation electric field
+        edi_data = remove_corot_efield(edi_data, mec_data, RE)
+
+        if polar:
+            # Convert MEC and EDI data to polar coordinates
+            # Factor converts the MEC data from kilometers to RE
+            mec_data['r_polar'] = dm.cart2polar(mec_data['R_sc'], factor=1 / RE)
+            edi_data['E_polar'] = (
+                dm.rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
+
+        # Prepare to average and bin the data
+        count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range)
+
+        # Create the empty dataset
+        imef_data = create_imef_data(L, MLT, count, nL, nMLT, polar)
+
+        # Average and bin the data into a file called filename
+        imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename,
+                             polar)
+
+        # If this is the first run, let the program know that the file has been created
+        # This is done so that any existing file with the same name as filename is overwritten,
+        # and the new data is not averaged into any existing data from previous runs
+        created_file = True
+
+        return imef_data, created_file
+
+
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # E = v x B, 1e-3 converts units to mV/m
     E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B'][:, :3])
@@ -187,7 +234,6 @@ def main():
     args = parser.parse_args()
 
     # Set up variables
-    RE = 6371  # km. This is the conversion from km to Earth radii
     sc = args.sc  # Chosen spacecraft
     mode = args.mode  # Chosen data type
     level = args.level  # Chosen level
@@ -214,9 +260,6 @@ def main():
     # Number of points in each coordinate
     nL = len(L)
     nMLT = len(MLT)
-
-    # Name of the file where the data will be stored
-    filename = args.filename
 
     # Boolean containing whether the file has been created
     created_file = False
@@ -259,41 +302,7 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            # Make sure that the data file is not empty
-            if edi_data.time.size != 0:
-                # EDI, FGM, and MEC data all have a different number of data points at different times.
-                # EDI has the lowest amount of data points, so take all the data points at the times EDI has
-                # and use those points for FGM and MEC data
-                fgm_data = fgm_data.interp_like(edi_data)
-                mec_data = mec_data.interp_like(edi_data)
-
-                # The spacecraft creates its own electric field and must be removed from the total calculations
-                edi_data = remove_spacecraft_efield(edi_data, fgm_data, mec_data)
-
-                # Remove the corotation electric field
-                edi_data = remove_corot_efield(edi_data, mec_data, RE)
-
-                if args.polar:
-                    # Convert MEC and EDI data to polar coordinates
-                    # Factor converts the MEC data from kilometers to RE
-                    mec_data['r_polar'] = dm.cart2polar(mec_data['R_sc'], factor=1/RE)
-                    edi_data['E_polar'] = (dm.rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index')
-                                           .assign_coords({'polar': ['r', 'phi']}))
-
-                # Prepare to average and bin the data
-                count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range)
-
-                # Create the empty dataset
-                imef_data = create_imef_data(L, MLT, count, nL, nMLT, args.polar)
-
-                # Average and bin the data into a file called filename
-                imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename,
-                                     args.polar)
-
-                # If this is the first run, let the program know that the file has been created
-                # This is done so that any existing file with the same name as filename is overwritten,
-                # and the new data is not averaged into any existing data from previous runs
-                created_file = True
+            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
