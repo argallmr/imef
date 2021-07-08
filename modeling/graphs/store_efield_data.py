@@ -2,8 +2,7 @@ import numpy as np
 import datetime as dt
 from scipy.stats import binned_statistic_2d
 import xarray as xr
-from pymms.sdc import mrmms_sdc_api as api
-import data_manipulation as dm
+from data_manipulation import rot2polar, cart2polar, remove_corot_efield, remove_spacecraft_efield
 import argparse
 import plot_nc_data as xrplot
 from download_data import get_fgm_data, get_edi_data, get_mec_data
@@ -37,9 +36,8 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nM
         if polar:
             # Convert MEC and EDI data to polar coordinates
             # Factor converts the MEC data from kilometers to RE
-            mec_data['r_polar'] = dm.cart2polar(mec_data['R_sc'], factor=1 / RE)
-            edi_data['E_polar'] = (
-                dm.rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
+            mec_data['r_polar'] = cart2polar(mec_data['R_sc'], factor=1 / RE)
+            edi_data['E_polar'] = (rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
 
         # Prepare to average and bin the data
         count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range)
@@ -57,34 +55,6 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nM
         created_file = True
 
         return imef_data, created_file
-
-
-def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
-    # E = v x B, 1e-3 converts units to mV/m
-    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B'][:, :3])
-
-    # Make into a DataArray to subtract the data easier
-    E_sc = xr.DataArray(E_sc,
-                        dims=['time', 'E_index'],
-                        coords={'time': edi_data['time'],
-                                'E_index': ['Ex', 'Ey', 'Ez']},
-                        name='E_sc')
-
-    # Remove E_sc from the measured electric field
-    edi_data['E_GSE'] = edi_data['E_GSE'] - E_sc
-
-    return edi_data
-
-
-def remove_corot_efield(edi_data, mec_data, RE):
-    E_corot = (-92100 * RE / np.linalg.norm(mec_data['R_sc'], ord=2,
-                                            axis=mec_data['R_sc'].get_axis_num('R_sc_index')) ** 2)
-
-    E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
-
-    edi_data = edi_data - E_corot
-
-    return edi_data
 
 
 def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
@@ -309,7 +279,7 @@ def main():
 
     # Plot the data, unless specified otherwise
     if not args.no_show:
-        # If the user chose to plot edi data in polar coordinates, do so. Otherwise plot in cartesian
+        # If the user chose to store edi data in polar coordinates, plot that data. Otherwise plot in cartesian
         if args.polar:
             xrplot.plot_polar_data(nL, nMLT, imef_data)
         else:

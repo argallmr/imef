@@ -28,3 +28,30 @@ def rot2polar(vec, pos, dim):
     v_polar = xr.concat([Vr, Vphi], dim='polar').T.assign_coords({'polar': ['r', 'phi']})
 
     return v_polar
+
+def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
+    # E = v x B, 1e-3 converts units to mV/m
+    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B'][:, :3])
+
+    # Make into a DataArray to subtract the data easier
+    E_sc = xr.DataArray(E_sc,
+                        dims=['time', 'E_index'],
+                        coords={'time': edi_data['time'],
+                                'E_index': ['Ex', 'Ey', 'Ez']},
+                        name='E_sc')
+
+    # Remove E_sc from the measured electric field
+    edi_data['E_GSE'] = edi_data['E_GSE'] - E_sc
+
+    return edi_data
+
+
+def remove_corot_efield(edi_data, mec_data, RE):
+    E_corot = (-92100 * RE / np.linalg.norm(mec_data['R_sc'], ord=2,
+                                            axis=mec_data['R_sc'].get_axis_num('R_sc_index')) ** 2)
+
+    E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
+
+    edi_data = edi_data - E_corot
+
+    return edi_data
