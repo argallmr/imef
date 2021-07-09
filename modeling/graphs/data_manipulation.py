@@ -1,5 +1,7 @@
 import numpy as np
 import xarray as xr
+import datetime as dt
+from scipy.stats import binned_statistic
 
 
 def cart2polar(pos_cart, factor=1):
@@ -29,6 +31,7 @@ def rot2polar(vec, pos, dim):
 
     return v_polar
 
+
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # E = v x B, 1e-3 converts units to mV/m
     E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B'][:, :3])
@@ -55,3 +58,36 @@ def remove_corot_efield(edi_data, mec_data, RE):
     edi_data = edi_data - E_corot
 
     return edi_data
+
+
+def slice_data_by_time(full_data, ti, te):
+    # Here is where the desired time and data values will be placed
+    time = np.array([])
+    wanted_value = np.array([])
+
+    # Slice the wanted data and put them into 2 lists
+    for counter in range(0, len(full_data)):
+        # The data at each index is all in one line, separated by whitespace. Separate them
+        new = str.split(full_data.iloc[counter][0])
+
+        # Create the time at that point. This could probably be streamlined
+        time_str = str(new[0]) + '-' + str(new[1]) + '-' + str(new[2]) + 'T' + str(new[3][:2]) + ':00:00'
+
+        # Make a datetime object out of time_str
+        insert_time_beg = dt.datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S')
+
+        # We know for Kp that the middle of the bin is 1.5 hours past the beginning of the bin (which is insert_time_beg)
+        insert_time_mid = insert_time_beg + dt.timedelta(hours=1.5)
+
+        # If the data point is within the time range that is desired, insert the time and the associated kp index
+        if insert_time_mid + dt.timedelta(hours=1.5) >= ti and insert_time_mid - dt.timedelta(hours=1.5) <= te:
+            insert_kp = new[7]
+            time = np.append(time, [insert_time_mid])
+            wanted_value = np.append(wanted_value, [insert_kp])
+
+    return time, wanted_value
+
+
+def bin_5min(data):
+    print('Put this in boyo')
+    #statistics = binned_statistic(x=data['time'], values=data['V'])
