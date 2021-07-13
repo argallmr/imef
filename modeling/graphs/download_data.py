@@ -156,7 +156,7 @@ def get_omni_data(ti, te):
     omni_data = xr.Dataset(
         coords={'Time': full_omni_data['Time'], 'V_index': ['Vx', 'Vy', 'Vz'], 'B_index': ['Bx', 'By', 'Bz']})
 
-    # Format the V and B values so that they will fit inside the above dataset.
+    # Concatenate the V and B values so that they will fit inside the above dataset.
     V_values = np.vstack((full_omni_data['Vx'], full_omni_data['Vy'], full_omni_data['Vz'])).T
     B_values = np.vstack((full_omni_data['BX_GSE'], full_omni_data['BY_GSE'], full_omni_data['BZ_GSE'])).T
 
@@ -171,6 +171,12 @@ def get_omni_data(ti, te):
 
 
 def get_dis_data(sc, mode, level, ti, te, binned=False):
+    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     # Download dis_data
     full_dis_data = fpi.load_moms(sc, mode, level, 'dis-moms', ti, te)
 
@@ -184,12 +190,18 @@ def get_dis_data(sc, mode, level, ti, te, binned=False):
     dis_data['V'] = xr.DataArray(V_data, dims=['time', 'V_index'], coords={'time': full_dis_data['time']})
 
     if binned == True:
-        dis_data = dm.bin_5min(dis_data)
+        dis_data = dm.bin_5min(dis_data, ti, te)
 
     return dis_data
 
 
 def get_des_data(sc, mode, level, ti, te, binned=False):
+    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     # Download des_data
     full_des_data = fpi.load_moms(sc, mode, level, 'des-moms', ti, te)
 
@@ -203,7 +215,7 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
     des_data['V'] = xr.DataArray(V_data, dims=['time', 'V_index'], coords={'time': full_des_data['time']})
 
     if binned == True:
-        des_data = dm.bin_5min(des_data)
+        des_data = dm.bin_5min(des_data, ti, te)
 
     return des_data
 
