@@ -91,14 +91,13 @@ def slice_data_by_time(full_data, ti, te):
     return time, wanted_value
 
 
-def bin_5min(data, ti, te):
-    # The assumption with this function is that exactly 1 day of data is being inputted. Otherwise this will not work properly, as the number of bins will be incorrect
-    # There is probably a simple fix to this, but it isn't implemented
+def interpolate_data_like(data, data_like):
+    data = data.interp_like(data_like)
 
-    # Create the array where the unix timestamp values will go.
-    # The timestamp values are needed so we can bin the values with binned_statistic
-    timestamp_values = np.array([])
+    return data
 
+
+def create_timestamps(data, vars_to_bin, ti, te):
     # Define the epoch and one second in np.datetime 64. This is so we can convert np.datetime64 objects to timestamp values
     unix_epoch = np.datetime64(0, 's')
     one_second = np.timedelta64(1, 's')
@@ -113,27 +112,24 @@ def bin_5min(data, ti, te):
     ti = ti.timestamp() - 14400
     te = te.timestamp() - 14400
 
-    # Convert all the time values from
-    for the_time in data['time'].values:
-        timestamp = (the_time - unix_epoch) / one_second
-        timestamp_values = np.append(timestamp_values, [timestamp])
+    # Create the array where the unix timestamp values go
+    # The timestamp values are needed so we can bin the values with binned_statistic
+    timestamps = (data['time'].values - unix_epoch) / one_second
 
-    # Find the mean of Vx, Vy, Vz
-    # mean is the mean in each bin, bin_edges is the edges of each bin in timestamp values, and binnum is which values go in which bin
-    mean_x, bin_edges_x, binnum_x = binned_statistic(x=timestamp_values, values=data['V'][:, 0], statistic='mean', bins=288, range=(ti, te))
-    mean_y, bin_edges_y, binnum_y = binned_statistic(x=timestamp_values, values=data['V'][:, 1], statistic='mean', bins=288, range=(ti, te))
-    mean_z, bin_edges_z, binnum_z = binned_statistic(x=timestamp_values, values=data['V'][:, 2], statistic='mean', bins=288, range=(ti, te))
+    # Get the times here. This way we don't have to rerun getting the times for every single variable that is being binned
+    count, bin_edges, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[0]], statistic='count', bins=288,
+                                               range=(ti, te))
 
     # Create an nparray where the new 5 minute interval datetime64 objects will go
     new_times = np.array([], dtype=object)
 
     # Create the datetime64 objects and add them to new_times
-    for time in bin_edges_x:
+    for time in bin_edges:
         # Don't run if the time value is the last index in bin_edges. There is 1 more bin edge than there is mean values
         # This is because bin_edges includes an extra edge to encompass all the means
         # As a result, the last bin edge (when shifted to be in the middle of the dataset) doesn't correspond to a mean value
-        # So it must be removed so that the data will fit into a new dataset
-        if time != bin_edges_x[-1]:
+        # So it must be ignored so that the data will fit into a new dataset
+        if time != bin_edges[-1]:
             # Convert timestamp to datetime object
             new_time = dt.datetime.utcfromtimestamp(time)
 
@@ -146,13 +142,63 @@ def bin_5min(data, ti, te):
             # Add the object to the nparray
             new_times = np.append(new_times, [new_time])
 
-    # Create the new dataset where the 5 minute bins will go
-    new_data = xr.Dataset(coords={'time': new_times, 'V_index': ['Vx', 'Vy', 'Vz']})
+    # Return timestamp versions of ti, te, and the datetime64 objects.
+    # Also return the datetime64 objects of the 5 minute intervals created in binned_statistic
+    return ti, te, timestamps, new_times
 
-    # Format the mean values together so that they will fit into new_data
-    V_values = np.vstack((mean_x, mean_y, mean_z)).T
 
-    # Put in V_values
-    new_data['V'] = xr.DataArray(V_values, dims=['time', 'V_index'], coords={'time': new_times})
+def bin_5min(data, vars_to_bin, index_names, ti, te):
+    # The assumption with this function is that exactly 1 day of data is being inputted. Otherwise this will not work properly, as the number of bins will be incorrect
+    # There is probably a simple fix to this, but it isn't implemented
+    # Also, any variables that are not in var_to_bin are lost (As they can't be mapped to the new times otherwise)
 
-    return new_data
+    # In order to bin the values properly, we need to convert the datetime objects to integers. I chose to use unix timestamps to do so
+    ti, te, timestamps, new_times = create_timestamps(data, vars_to_bin, ti, te)
+
+    # Iterate through every variable (and associated index) in the given list
+    for var_counter in range(len(vars_to_bin)):
+        if index_names[var_counter] == '':
+            # Since there is no index associated with this variable, there is only 1 thing to be meaned. So take the mean of the desired variable
+            means, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='mean', bins=288, range=(ti, te))
+
+            # Create the dataset for the meaned variable
+            new_data = xr.Dataset(coords={'time': new_times})
+
+            # Fix the array so it will fit into the dataset
+            var_values = means.T
+
+            # Put the data into the dataset
+            new_data[vars_to_bin[var_counter]] = xr.DataArray(var_values, dims=['time'],coords={'time': new_times})
+        else:
+            # Empty array where the mean of the desired variable will go
+            means = np.array([[]])
+
+            # Iterate through every variable in the associated index
+            for counter in range(len(data[index_names[var_counter] + '_index'])):
+                # Find the mean of var_to_bin
+                # mean is the mean in each bin, bin_edges is the edges of each bin in timestamp values, and binnum is which values go in which bin
+                mean, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='mean', bins=288, range=(ti, te))
+
+                # If there are no means yet, designate the solved mean value as the array where all of the means will be stored. Otherwise combine with existing data
+                if means[0].size == 0:
+                    means = [mean]
+                else:
+                    means = np.append(means, [mean], axis=0)
+
+            # Create the new dataset where the 5 minute bins will go
+            new_data = xr.Dataset(
+                coords={'time': new_times, index_names[var_counter] + '_index': data[index_names[var_counter] + '_index']})
+
+            # Format the mean values together so that they will fit into new_data
+            var_values = means.T
+
+            # Put in var_values
+            new_data[vars_to_bin[var_counter]] = xr.DataArray(var_values, dims=['time', index_names[var_counter] + '_index'], coords={'time': new_times})
+
+        # If this is the first run, designate the created data as the dataset that will hold all the data. Otherwise combine with the existing data
+        if var_counter == 0:
+            complete_data = new_data
+        else:
+            complete_data = xr.merge([complete_data, new_data])
+
+    return complete_data
