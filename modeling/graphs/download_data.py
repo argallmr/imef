@@ -37,12 +37,17 @@ def read_txt_files(fname_list):
     return full_data
 
 
-def get_edi_data(sc, mode, level, ti, te):
+def get_edi_data(sc, mode, level, ti, te, binned=False):
+    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     tm_vname = '_'.join((sc, 'edi', 't', 'delta', 'minus', mode, level))
 
     # Get EDI data
-    edi_data = edi.load_data(sc, mode, level,
-                             optdesc='efield', start_date=ti, end_date=te)
+    edi_data = edi.load_data(sc, mode, level, optdesc='efield', start_date=ti, end_date=te)
 
     # Timestamps begin on 0's and 5's and span 5 seconds. The timestamp is at
     # the weighted mean of all beam hits. To get the beginning of the timestamp,
@@ -61,20 +66,40 @@ def get_edi_data(sc, mode, level, ti, te):
     # Rename Epoch to time for consistency across all data files
     edi_data = edi_data.rename({'Epoch': 'time'})
 
+    # We want to use E_GSE, so we bin through E_GSE.
+    # Note that binning results in the rest of the variables being dropped.
+    if binned == True:
+        edi_data = dm.bin_5min(edi_data, ['E_GSE'], ['E'], ti, te)
+
     return edi_data
 
 
-def get_fgm_data(sc, mode, ti, te):
+def get_fgm_data(sc, mode, ti, te, binned=False):
+    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     # Get FGM data
     fgm_data = fgm.load_data(sc=sc, mode=mode, start_date=ti, end_date=te)
 
     # Rename some variables
-    fgm_data = fgm_data.rename({'B_GSE': 'B'})
+    fgm_data = fgm_data.rename({'B_GSE': 'B_FGM'})
+
+    if binned == True:
+        fgm_data = dm.bin_5min(fgm_data, ['B_FGM'], ['b'], ti, te)
 
     return fgm_data
 
 
-def get_mec_data(sc, mode, level, ti, te):
+def get_mec_data(sc, mode, level, ti, te, binned=False):
+    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     # The names of the variables that will be downloaded
     r_vname = '_'.join((sc, 'mec', 'r', 'gse'))
     v_vname = '_'.join((sc, 'mec', 'v', 'gse'))
@@ -99,10 +124,20 @@ def get_mec_data(sc, mode, level, ti, te):
                                 l_dip_vname: 'L',
                                 'Epoch': 'time',
                                 })
+
+    if binned == True:
+        mec_data = dm.bin_5min(mec_data, ['V_sc', 'R_sc', 'L', 'MLT'], ['V_sc', 'R_sc', '', ''], ti, te)
+
     return mec_data
 
 
-def get_edp_data(sc, level, ti, te):
+def get_edp_data(sc, level, ti, te, binned=False):
+    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     # Create the names of the variables that we will download
     # Time
     t_vname_fast = '_'.join((sc, 'edp', 'epoch', 'fast', level))
@@ -122,7 +157,7 @@ def get_edp_data(sc, level, ti, te):
 
     # Rename the variables
     edp_data_fast = edp_data_fast.rename({t_vname_fast: 'time',
-                                          e_fast_vname: 'E',
+                                          e_fast_vname: 'E_EDP',
                                           e_fast_vname_label: 'E_index'})
 
     # Load edp_slow data
@@ -131,7 +166,7 @@ def get_edp_data(sc, level, ti, te):
 
     # Rename the variables
     edp_data_slow = edp_data_slow.rename({t_vname_slow: 'time',
-                                          e_slow_vname: 'E',
+                                          e_slow_vname: 'E_EDP',
                                           e_slow_vname_label: 'E_index'})
 
     # Combine fast and slow data
@@ -140,13 +175,17 @@ def get_edp_data(sc, level, ti, te):
     # Reorganize the data to sort by time
     edp_data = edp_data.sortby('time')
 
+    if binned == True:
+        edp_data = dm.bin_5min(edp_data, ['E_EDP'], ['E'], ti, te)
+
     return edp_data
 
 
 def get_omni_data(ti, te):
     # Download the omni data as a timeseries object, with data points every 5 minutes
     # We can choose between 1 min, 5 min, and 1 hour intervals
-    full_omni_data = omni.hro2_5min(ti, te)
+    # Subtracting the microsecond is so the data will include the midnight data variable. Otherwise we are missing the first piece of data
+    full_omni_data = omni.hro2_5min(ti-dt.timedelta(microseconds=1), te)
 
     # Convert time series object to an xarray dataset
     full_omni_data = full_omni_data.to_dataframe().to_xarray()
@@ -161,8 +200,8 @@ def get_omni_data(ti, te):
     B_values = np.vstack((full_omni_data['BX_GSE'], full_omni_data['BY_GSE'], full_omni_data['BZ_GSE'])).T
 
     # Put the values into the new dataset
-    omni_data['V'] = xr.DataArray(V_values, dims=['Time', 'V_index'], coords={'Time': omni_data['Time']})
-    omni_data['B'] = xr.DataArray(B_values, dims=['Time', 'B_index'], coords={'Time': omni_data['Time']})
+    omni_data['V_OMNI'] = xr.DataArray(V_values, dims=['Time', 'V_index'], coords={'Time': omni_data['Time']})
+    omni_data['B_OMNI'] = xr.DataArray(B_values, dims=['Time', 'B_index'], coords={'Time': omni_data['Time']})
 
     # Rename time so that it is the same as the other datasets, making concatenation easier
     omni_data = omni_data.rename({'Time': 'time'})
@@ -187,10 +226,10 @@ def get_dis_data(sc, mode, level, ti, te, binned=False):
     dis_data = xr.Dataset(coords={'time': full_dis_data['time'], 'V_index': ['Vx', 'Vy', 'Vz']})
 
     # Place the velocity data into the new dataset
-    dis_data['V'] = xr.DataArray(V_data, dims=['time', 'V_index'], coords={'time': full_dis_data['time']})
+    dis_data['V_DIS'] = xr.DataArray(V_data, dims=['time', 'V_index'], coords={'time': full_dis_data['time']})
 
     if binned == True:
-        dis_data = dm.bin_5min(dis_data, ti, te)
+        dis_data = dm.bin_5min(dis_data, ['V_DIS'], ['V'], ti, te)
 
     return dis_data
 
@@ -212,15 +251,15 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
     des_data = xr.Dataset(coords={'time': full_des_data['time'], 'V_index': ['Vx', 'Vy', 'Vz']})
 
     # Place the velocity data into the new dataset
-    des_data['V'] = xr.DataArray(V_data, dims=['time', 'V_index'], coords={'time': full_des_data['time']})
+    des_data['V_DES'] = xr.DataArray(V_data, dims=['time', 'V_index'], coords={'time': full_des_data['time']})
 
     if binned == True:
-        des_data = dm.bin_5min(des_data, ti, te)
+        des_data = dm.bin_5min(des_data, ['V_DES'], ['V'], ti, te)
 
     return des_data
 
 
-def get_kp_data(ti, te):
+def get_kp_data(ti, te, expand=False):
     # Location of the files on the server
     remote_location = 'ftp://ftp.gfz-potsdam.de/pub/home/obs/Kp_ap_Ap_SN_F107/'
     # Location where the file will be places locally
@@ -248,6 +287,9 @@ def get_kp_data(ti, te):
 
     # Select the data we actually want
     time, kp = dm.slice_data_by_time(full_kp_data, ti, te)
+
+    if expand == True:
+        time, kp = dm.expand_5min(time, kp)
 
     # I have the option to put in UT here. Not going to rn but could at a later point
     # Create an empty dataset at the time values that we made above

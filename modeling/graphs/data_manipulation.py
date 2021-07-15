@@ -37,7 +37,7 @@ def rot2polar(vec, pos, dim):
 
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # E = v x B, 1e-3 converts units to mV/m
-    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B'][:, :3])
+    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_FGM'][:, :3])
 
     # Make into a DataArray to subtract the data easier
     E_sc = xr.DataArray(E_sc,
@@ -73,7 +73,7 @@ def slice_data_by_time(full_data, ti, te):
         # The data at each index is all in one line, separated by whitespace. Separate them
         new = str.split(full_data.iloc[counter][0])
 
-        # Create the time at that point. This could probably be streamlined
+        # Create the time at that point
         time_str = str(new[0]) + '-' + str(new[1]) + '-' + str(new[2]) + 'T' + str(new[3][:2]) + ':00:00'
 
         # Make a datetime object out of time_str
@@ -83,12 +83,33 @@ def slice_data_by_time(full_data, ti, te):
         insert_time_mid = insert_time_beg + dt.timedelta(hours=1.5)
 
         # If the data point is within the time range that is desired, insert the time and the associated kp index
-        if insert_time_mid + dt.timedelta(hours=1.5) >= ti and insert_time_mid - dt.timedelta(hours=1.5) <= te:
+        # The other datasets use the dates as datetime64 objects. So must use those instead of regular datetime objects
+        if insert_time_mid + dt.timedelta(hours=1.5) > ti and insert_time_mid - dt.timedelta(hours=1.5) < te:
             insert_kp = new[7]
             time = np.append(time, [insert_time_mid])
             wanted_value = np.append(wanted_value, [insert_kp])
 
     return time, wanted_value
+
+
+def expand_5min(time, kp):
+    # The assumption here is that they are 3 hour bins, since this is made for Kp. Could be generalized later
+    new_kp = np.repeat(kp, 36)
+    new_times = np.array([])
+
+    for a_time in time:
+        new_times = np.append(new_times, [a_time - dt.timedelta(hours=1.5)])
+        for counter in range(18):
+            if counter == 0:
+                new_time = a_time + counter * dt.timedelta(minutes=5)
+                new_times = np.append(new_times, [new_time])
+            else:
+                new_time_plus = a_time + counter * dt.timedelta(minutes=5)
+                new_time_minus = a_time - counter * dt.timedelta(minutes=5)
+                new_times = np.append(new_times, [new_time_plus, new_time_minus])
+
+    new_times = np.sort(new_times, axis=0)
+    return new_times, new_kp
 
 
 def interpolate_data_like(data, data_like):
@@ -135,9 +156,6 @@ def create_timestamps(data, vars_to_bin, ti, te):
 
             # Add 2.5 minutes to place the time in the middle of each bin, rather than the beginning
             new_time = new_time + dt.timedelta(minutes=2.5)
-
-            # Convert the datetime object to a datetime64 object
-            new_time = np.datetime64(new_time)
 
             # Add the object to the nparray
             new_times = np.append(new_times, [new_time])
