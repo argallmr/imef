@@ -84,11 +84,8 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
     # Get FGM data
     fgm_data = fgm.load_data(sc=sc, mode=mode, start_date=ti, end_date=te)
 
-    # Rename some variables
-    fgm_data = fgm_data.rename({'B_GSE': 'B_FGM'})
-
     if binned == True:
-        fgm_data = dm.bin_5min(fgm_data, ['B_FGM'], ['b'], ti, te)
+        fgm_data = dm.bin_5min(fgm_data, ['B_GSE'], ['b'], ti, te)
 
     return fgm_data
 

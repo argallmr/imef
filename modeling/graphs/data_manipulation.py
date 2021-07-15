@@ -37,7 +37,7 @@ def rot2polar(vec, pos, dim):
 
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # E = v x B, 1e-3 converts units to mV/m
-    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_FGM'][:, :3])
+    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_GSE'][:, :3])
 
     # Make into a DataArray to subtract the data easier
     E_sc = xr.DataArray(E_sc,
