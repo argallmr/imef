@@ -94,21 +94,33 @@ def slice_data_by_time(full_data, ti, te):
 
 def expand_5min(time, kp):
     # The assumption here is that they are 3 hour bins, since this is made for Kp. Could be generalized later
+
+    # Expanding the kp values is easy, as np.repeat does this for us.
+    # Eg: np.repeat([1,2,3],3) = [1,1,1,2,2,2,3,3,3]
     new_kp = np.repeat(kp, 36)
+
     new_times = np.array([])
 
+    # Iterate through every time that is given
     for a_time in time:
+        # Put the first time value into the xarray. This corresponds to the start of the kp window
         new_times = np.append(new_times, [a_time - dt.timedelta(hours=1.5)])
+
+        # There are 36 5-minute intervals in the 3 hour window Kp covers. We have the time in the middle of the 3 hour window.
+        # Here all the values are created (other than the start of the window, done above) by incrementally getting 5 minutes apart on both sides of the middle value. This is done 18 times
+        # However we must make an exception when the counter is 0, because otherwise it will put the middle of the window twice
         for counter in range(18):
             if counter == 0:
-                new_time = a_time + counter * dt.timedelta(minutes=5)
+                new_time = a_time
                 new_times = np.append(new_times, [new_time])
             else:
                 new_time_plus = a_time + counter * dt.timedelta(minutes=5)
                 new_time_minus = a_time - counter * dt.timedelta(minutes=5)
                 new_times = np.append(new_times, [new_time_plus, new_time_minus])
 
+    # The datetime objects we want are created, but out of order. Put them in order
     new_times = np.sort(new_times, axis=0)
+
     return new_times, new_kp
 
 
