@@ -1,6 +1,5 @@
 import xarray as xr
 import numpy as np
-import matplotlib.pyplot as plt
 
 # When printing out xr[variable].values, says print out every value
 np.set_printoptions(threshold=np.inf)
@@ -135,8 +134,6 @@ def get_C(min_Lvalue, max_Lvalue):
     # Fixes the last row
     C[MLT*(L_range+1)-1][MLT*L_range] = 1
 
-    print(C)
-
     return C
 
 
@@ -149,7 +146,7 @@ def main():
     max_Lvalue = imef_data['L'][-1, 0].values
 
     # Find the number of bins relative to L and MLT
-    # nL is the number of L values in E, not Φ. So there will be nL+1 in places, and this
+    # nL is the number of L values in E, not Φ. So there will be nL+1 in places. There are 6 L values in E, but 7 in Φ (As L is taken at values of 4.5, 5.5, etc in E, but 4, 5, etc in Φ)
     nL = int(max_Lvalue - min_Lvalue + 1)
     nMLT = 24
 
@@ -177,9 +174,9 @@ def main():
     gamma = 2.51e-4
 
     # Solve the inverse problem according to the equation in Matsui 2004 and Korth 2002
-    # V=(A^T * A + γ * C^T * C)^-1 * E
-    v = np.dot(np.dot(np.linalg.inv(np.dot(A.T, A) + gamma * np.dot(C.T, C)), A.T), E)
-    v = v.reshape(nL+1, nMLT)
+    # V=(A^T * A + γ * C^T * C)^-1 * A^T * E
+    V = np.dot(np.dot(np.linalg.inv(np.dot(A.T, A) + gamma * np.dot(C.T, C)), A.T), E)
+    V = V.reshape(nL+1, nMLT)
 
 
 if __name__ == '__main__':
