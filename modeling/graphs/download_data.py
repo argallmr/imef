@@ -184,8 +184,15 @@ def get_omni_data(ti, te):
     # Subtracting the microsecond is so the data will include the midnight data variable. Otherwise we are missing the first piece of data
     full_omni_data = omni.hro2_5min(ti-dt.timedelta(microseconds=1), te)
 
-    # Convert time series object to an xarray dataset
-    full_omni_data = full_omni_data.to_dataframe().to_xarray()
+    # Convert the time series object to a pandas dataframe
+    full_omni_data = full_omni_data.to_dataframe()
+
+    # When the data is being downloaded over multiple months, the first value of every month appears twice (I assume its a bug)
+    # Remove the duplicate value
+    full_omni_data = full_omni_data.drop_duplicates()
+
+    # Convert pandas dataframe to an xarray dataset
+    full_omni_data = full_omni_data.to_xarray()
 
     # We only want the V and B values in this xarray. We also want to create new indices where each individual component of V and B will reside
     # Ex: V_index = (Vx, Vy, Vz)
