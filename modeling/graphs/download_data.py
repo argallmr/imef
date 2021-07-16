@@ -187,8 +187,7 @@ def get_omni_data(ti, te):
     # Convert the time series object to a pandas dataframe
     full_omni_data = full_omni_data.to_dataframe()
 
-    # When the data is being downloaded over multiple months, the first value of every month appears twice (I assume its a bug)
-    # Remove the duplicate value
+    # The first value of every month appears twice (I assume its a bug). Remove the duplicate value
     full_omni_data = full_omni_data.drop_duplicates()
 
     # Convert pandas dataframe to an xarray dataset
