@@ -123,8 +123,6 @@ def main():
     # Merge the kp data with the rest of the data
     complete_data = xr.merge([complete_data, kp_data])
 
-    print(complete_data)
-
     # Output the data to a file with the name given by the user
     complete_data.to_netcdf(args.filename)
 
