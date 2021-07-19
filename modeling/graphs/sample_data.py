@@ -76,6 +76,7 @@ def main():
             edp_data = dd.get_edp_data(sc, level, ti, te, binned=True)
 
             # Read OMNI data
+            # There is no standard deviation for omni, since it is an outside package that does the binning itself. I don't think there is a way to get it with a command from the package
             omni_data = dd.get_omni_data(ti, te)
 
             # Read DIS data
@@ -121,6 +122,8 @@ def main():
 
     # Merge the kp data with the rest of the data
     complete_data = xr.merge([complete_data, kp_data])
+
+    print(complete_data)
 
     # Output the data to a file with the name given by the user
     complete_data.to_netcdf(args.filename)

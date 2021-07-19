@@ -190,30 +190,37 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
         if index_names[var_counter] == '':
             # Since there is no index associated with this variable, there is only 1 thing to be meaned. So take the mean of the desired variable
             means, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='mean', bins=288, range=(ti, te))
+            std, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='std', bins=288, range=(ti, te))
 
             # Create the dataset for the meaned variable
             new_data = xr.Dataset(coords={'time': new_times})
 
             # Fix the array so it will fit into the dataset
             var_values = means.T
+            var_values_std = std.T
 
             # Put the data into the dataset
-            new_data[vars_to_bin[var_counter]] = xr.DataArray(var_values, dims=['time'],coords={'time': new_times})
+            new_data[vars_to_bin[var_counter]] = xr.DataArray(var_values, dims=['time'], coords={'time': new_times})
+            new_data[vars_to_bin[var_counter]+'_std'] = xr.DataArray(var_values_std, dims=['time'], coords={'time': new_times})
         else:
             # Empty array where the mean of the desired variable will go
             means = np.array([[]])
+            stds = np.array([[]])
 
             # Iterate through every variable in the associated index
             for counter in range(len(data[index_names[var_counter] + '_index'])):
                 # Find the mean of var_to_bin
                 # mean is the mean in each bin, bin_edges is the edges of each bin in timestamp values, and binnum is which values go in which bin
                 mean, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='mean', bins=288, range=(ti, te))
+                std, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='std', bins=288, range=(ti, te))
 
                 # If there are no means yet, designate the solved mean value as the array where all of the means will be stored. Otherwise combine with existing data
                 if means[0].size == 0:
                     means = [mean]
+                    stds = [std]
                 else:
                     means = np.append(means, [mean], axis=0)
+                    stds = np.append(stds, [std], axis=0)
 
             # Create the new dataset where the 5 minute bins will go
             new_data = xr.Dataset(
@@ -221,9 +228,11 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
 
             # Format the mean values together so that they will fit into new_data
             var_values = means.T
+            var_values_std = stds.T
 
             # Put in var_values
             new_data[vars_to_bin[var_counter]] = xr.DataArray(var_values, dims=['time', index_names[var_counter] + '_index'], coords={'time': new_times})
+            new_data[vars_to_bin[var_counter]+'_std'] = xr.DataArray(var_values_std, dims=['time', index_names[var_counter] + '_index'], coords={'time': new_times})
 
         # If this is the first run, designate the created data as the dataset that will hold all the data. Otherwise combine with the existing data
         if var_counter == 0:
