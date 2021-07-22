@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import xarray as xr
 
+# For debugging purposes
+np.set_printoptions(threshold=np.inf)
 
 def draw_earth(ax):
     '''
@@ -19,7 +20,6 @@ def plot_cartesian_data(nL, nMLT, imef_data):
     Ex = imef_data['E_mean'].loc[:, :, 'x'].values.reshape(nL, nMLT)
     Ey = imef_data['E_mean'].loc[:, :, 'y'].values.reshape(nL, nMLT)
 
-
     # Plot the data
     fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
 
@@ -30,7 +30,6 @@ def plot_cartesian_data(nL, nMLT, imef_data):
     ax1.quiver(phi, r, Ex, Ey, scale=10)
     ax1.set_xlabel("Electric Field")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
-    ax1.set_theta_direction(1)
 
     # Draw the earth
     draw_earth(ax1)
@@ -82,7 +81,8 @@ def plot_polar_data(nL, nMLT, imef_data):  # Update this to spherical if needed
 
 # For debugging purposes
 # def main():
-#     L_range = (4, 10)
+#     import xarray as xr
+#     L_range = (0, 25)
 #     MLT_range = (0, 24)
 #     dL = 1  # RE
 #     dMLT = 1  # MLT
@@ -91,10 +91,8 @@ def plot_polar_data(nL, nMLT, imef_data):  # Update this to spherical if needed
 #     # Number of points in each coordinate
 #     nL = len(L)
 #     nMLT = len(MLT)
-#
-#     imef_data = xr.open_dataset('2years.nc')
+#     imef_data = xr.open_dataset('edi_data.nc')
 #     plot_polar_data(nL, nMLT, imef_data)
-#
 #
 # if __name__ == '__main__':
 #     main()
