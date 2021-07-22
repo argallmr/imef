@@ -27,6 +27,8 @@ def main():
 
     parser.add_argument('filename', type=str, help='Output file name')
 
+    parser.add_argument('-e', '--exists', help='The output file already exists, merge the data across the new dates with the existing data', action='store_true')
+
     args = parser.parse_args()
 
     sc = args.sc
@@ -35,8 +37,14 @@ def main():
     t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
     t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
 
-    # Used to determine whether it is the first run through the loop or not
-    start_date = t0
+    # Name of the file where the sampled data will go
+    filename = args.filename
+
+    # Boolean containing whether the file has been created
+    if args.exists:
+        created_file = True
+    else:
+        created_file = False
 
     RE = 6371  # km. This is the conversion from km to Earth radii
 
@@ -111,11 +119,14 @@ def main():
             one_day_data = one_day_data.drop_vars("Epoch_plus_var")
             one_day_data = one_day_data.drop_vars("Epoch_minus_var")
 
-            # If there is no existing data, set this day's data as the existing data. Otherwise combine with
-            if t0 == start_date:
+            # If there is no existing data, set this day's data as the existing data. Otherwise combine with existing data
+            if created_file == False:
                 complete_data = one_day_data
+                complete_data.to_netcdf(filename)
+                created_file = True
             else:
                 complete_data = xr.concat([complete_data, one_day_data], 'time')
+                complete_data.to_netcdf(filename)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff

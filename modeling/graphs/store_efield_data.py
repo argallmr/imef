@@ -11,13 +11,8 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data
 # np.set_printoptions(threshold=np.inf)
 
 
-def prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT):
+def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT):
     RE = 6371  # km. This is the conversion from km to Earth radii
-
-    # The name of the file where the data will be stored
-    filename = args.filename
-    # Whether the user wants the data in polar coordinates or not
-    polar = args.polar
 
     # Make sure that the data file is not empty
     if edi_data.time.size != 0:
@@ -36,7 +31,8 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nM
         if polar:
             # Convert MEC and EDI data to polar coordinates
             # Factor converts the MEC data from kilometers to RE
-            mec_data['r_polar'] = cart2polar(mec_data['R_sc'], factor=1 / RE)
+            # Instead of positive x facing the right, it is facing the left in MEC data. So we have to shift the angle around 180 degrees so the directions match up
+            mec_data['r_polar'] = cart2polar(mec_data['R_sc'], factor=1 / RE, shift=np.pi)
             edi_data['E_polar'] = (rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
 
         # Prepare to average and bin the data
@@ -70,6 +66,7 @@ def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
                                                         bins=[nL, nMLT],
                                                         range=[L_range, MLT_range])
 
+    print(binnum)
     return count, x_edge, y_edge, binnum
 
 
@@ -198,6 +195,8 @@ def main():
 
     parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
 
+    parser.add_argument('-e', '--exists', help='The output file already exists, merge the data across the new dates with the existing data', action='store_true')
+
     # If the polar plot is updated to spherical, update this note (and maybe change -p to -s)
     parser.add_argument('-p', '--polar', help='Convert the electric field values to polar', action='store_true')
 
@@ -212,11 +211,16 @@ def main():
     t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
     t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
 
+    # The name of the file where the data will be stored
+    filename = args.filename
+    # Whether the user wants the data in polar coordinates or not
+    polar = args.polar
+
     # A datetime number to increment the dates by one day, but without extending into the next day
     one_day = dt.timedelta(days=1) - dt.timedelta(microseconds=1)
 
     # Ranges for L and MLT values to be binned for
-    L_range = (4, 10)  # RE
+    L_range = (0, 25)  # RE
     MLT_range = (0, 24)  # Hours
 
     # Size of the L and MLT bins
@@ -232,7 +236,10 @@ def main():
     nMLT = len(MLT)
 
     # Boolean containing whether the file has been created
-    created_file = False
+    if args.exists:
+        created_file = True
+    else:
+        created_file = False
 
     # Download and process the data separately for each individual orbit,
     # So loop through every value in orbits
@@ -272,7 +279,7 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, args, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT)
+            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff

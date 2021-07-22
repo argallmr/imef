@@ -7,12 +7,12 @@ from scipy.stats import binned_statistic
 np.set_printoptions(threshold=np.inf)
 
 
-def cart2polar(pos_cart, factor=1):
+def cart2polar(pos_cart, factor=1, shift=0):
     '''
     Rotate cartesian position coordinates to polar coordinates
     '''
     r = (np.sqrt(np.sum(pos_cart[:, [0, 1]] ** 2, axis=1)) * factor)
-    phi = (np.arctan2(pos_cart[:, 1], pos_cart[:, 0]))
+    phi = (np.arctan2(pos_cart[:, 1], pos_cart[:, 0])) + shift
     pos_polar = xr.concat([r, phi], dim='polar').T.assign_coords({'polar': ['r', 'phi']})
 
     return pos_polar
@@ -223,8 +223,7 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
                     stds = np.append(stds, [std], axis=0)
 
             # Create the new dataset where the 5 minute bins will go
-            new_data = xr.Dataset(
-                coords={'time': new_times, index_names[var_counter] + '_index': data[index_names[var_counter] + '_index']})
+            new_data = xr.Dataset(coords={'time': new_times, index_names[var_counter] + '_index': data[index_names[var_counter] + '_index']})
 
             # Format the mean values together so that they will fit into new_data
             var_values = means.T
