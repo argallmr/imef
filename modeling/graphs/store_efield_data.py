@@ -66,7 +66,6 @@ def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
                                                         bins=[nL, nMLT],
                                                         range=[L_range, MLT_range])
 
-    print(binnum)
     return count, x_edge, y_edge, binnum
 
 
