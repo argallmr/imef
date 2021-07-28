@@ -156,9 +156,9 @@ def average_data(imef_data, filename):
     average_mean = average_mean.fillna(0)
 
     # Calculate weighted standard deviation of incoming and existing data
-    average_std = (imef_data['count'] * (imef_data['E_std'] ** 2 + (imef_data['E_mean'] - average_mean) ** 2) +
+    average_std = np.sqrt((imef_data['count'] * (imef_data['E_std'] ** 2 + (imef_data['E_mean'] - average_mean) ** 2) +
                    file_data['count'] * (file_data['E_std'] ** 2 + (file_data['E_mean'] - average_mean) ** 2)) / \
-                  (imef_data['count'] + file_data['count'])
+                  (imef_data['count'] + file_data['count']))
 
     average_std = average_std.fillna(0)
 
