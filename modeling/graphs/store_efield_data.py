@@ -10,6 +10,9 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data
 # For debugging purposes
 # np.set_printoptions(threshold=np.inf)
 
+# Known Issue: Standard deviation does not work properly. It works over short intervals (ex: 9/10/15-9/15/15, 9/10/15-10/15/15), but over the whole 6 years numerous 0 and inf values appear
+# I believe it is a small issue with an error not getting caught, or something similar
+
 
 def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT):
     RE = 6371  # km. This is the conversion from km to Earth radii
@@ -287,9 +290,9 @@ def main():
     if not args.no_show:
         # If the user chose to store edi data in polar coordinates, plot that data. Otherwise plot in cartesian
         if args.polar:
-            xrplot.plot_polar_data(nL, nMLT, imef_data)
+            xrplot.plot_efield_polar(nL, nMLT, imef_data)
         else:
-            xrplot.plot_cartesian_data(nL, nMLT, imef_data)
+            xrplot.plot_efield_cartesian(nL, nMLT, imef_data)
 
 
 if __name__ == '__main__':

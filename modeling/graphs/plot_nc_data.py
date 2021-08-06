@@ -12,7 +12,7 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_cartesian_data(nL, nMLT, imef_data):
+def plot_efield_cartesian(nL, nMLT, imef_data):
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
@@ -43,7 +43,7 @@ def plot_cartesian_data(nL, nMLT, imef_data):
     plt.show()
 
 
-def plot_polar_data(nL, nMLT, imef_data):  # Update this to spherical if needed
+def plot_efield_polar(nL, nMLT, imef_data):  # Update this to spherical if needed
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
@@ -79,20 +79,43 @@ def plot_polar_data(nL, nMLT, imef_data):  # Update this to spherical if needed
 
     plt.show()
 
-# For debugging purposes
-# def main():
-#     import xarray as xr
-#     L_range = (0, 25)
-#     MLT_range = (0, 24)
-#     dL = 1  # RE
-#     dMLT = 1  # MLT
-#     L = xr.DataArray(np.arange(L_range[0], L_range[1], dL), dims='L')
-#     MLT = xr.DataArray(np.arange(MLT_range[0], MLT_range[1], dMLT), dims='MLT')
-#     # Number of points in each coordinate
-#     nL = len(L)
-#     nMLT = len(MLT)
-#     imef_data = xr.open_dataset('edi_data.nc')
-#     plot_polar_data(nL, nMLT, imef_data)
-#
-# if __name__ == '__main__':
-#     main()
+
+def plot_potential(nL, nMLT, imef_data, V_data):
+
+    # Create a coordinate grid
+    new_values = imef_data['MLT'].values-.5
+    phi = (2 * np.pi * new_values / 24).reshape(nL, nMLT)
+    r = imef_data['L'].values.reshape(nL, nMLT)-.5
+
+    extra_phi_value = 2 * np.pi
+
+    for counter in range (7):
+        add_to_r = np.append(r[counter], r[counter][0])
+        add_to_phi = np.append(phi[0], extra_phi_value)
+        add_to_V_data = np.append(V_data[counter], V_data[counter][0])
+        if counter==0:
+            new_r = [add_to_r]
+            new_phi = [add_to_phi]
+            new_V_data = [add_to_V_data]
+        else:
+            new_r = np.append(new_r, [add_to_r], axis=0)
+            new_phi= np.append(new_phi, [add_to_phi], axis=0)
+            new_V_data = np.append(new_V_data, [add_to_V_data], axis=0)
+
+    # Plot the data
+    fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
+
+    # Plot the electric field
+    # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
+    # May need to be changed when more data points are present
+    ax1 = axes[0, 0]
+    ax1.set_xlabel("Potential")
+    im = ax1.contourf(new_phi, new_r, new_V_data, cmap='Oranges')
+    # plt.clabel(im, inline=True, fontsize=8)
+    # plt.imshow(new_V_data, extent=[-40, 12, 0, 10], cmap='RdGy', alpha=0.5)
+    fig.colorbar(im, ax=ax1)
+
+    # Draw the earth
+    draw_earth(ax1)
+
+    plt.show()

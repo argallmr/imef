@@ -139,7 +139,10 @@ def get_C(min_Lvalue, max_Lvalue):
 
 def main():
     # Open data
-    imef_data = xr.open_dataset('2years.nc')
+    imef_data = xr.open_dataset('binned_edi.nc')
+
+    newtest = imef_data.where(imef_data.iL < 11, drop=True)
+    imef_data = newtest.where(newtest.iL > 3, drop=True)
 
     # Determine the L range that the data uses
     min_Lvalue = imef_data['L'][0, 0].values
