@@ -172,6 +172,9 @@ def get_edp_data(sc, level, ti, te, binned=False):
     # Reorganize the data to sort by time
     edp_data = edp_data.sortby('time')
 
+    # Cast the float32 values to float64 values to prevent overflow when binning
+    edp_data['E_EDP'].values=edp_data['E_EDP'].values.astype('float64')
+
     if binned == True:
         edp_data = dm.bin_5min(edp_data, ['E_EDP'], ['E'], ti, te)
 
@@ -187,7 +190,7 @@ def get_omni_data(ti, te):
     # Convert the time series object to a pandas dataframe
     full_omni_data = full_omni_data.to_dataframe()
 
-    # The first value of every month appears twice (I assume its a bug). Remove the duplicate value
+    # The first value of every month appears twice (I assume it's a bug). Remove the duplicate value
     full_omni_data = full_omni_data.drop_duplicates()
 
     # Convert pandas dataframe to an xarray dataset
@@ -262,7 +265,7 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
     return des_data
 
 
-def get_kp_data(ti, te, expand=False):
+def get_kp_data(ti, te, expand=None):
     # Location of the files on the server
     remote_location = 'ftp://ftp.gfz-potsdam.de/pub/home/obs/Kp_ap_Ap_SN_F107/'
     # Location where the file will be places locally
@@ -291,8 +294,11 @@ def get_kp_data(ti, te, expand=False):
     # Select the data we actually want
     time, kp = dm.slice_data_by_time(full_kp_data, ti, te)
 
-    if expand == True:
-        time, kp = dm.expand_5min(time, kp)
+    if expand[0] != None:
+        kp = dm.expand_kp(time, kp, expand)
+        time = expand
+
+    kp = kp.astype('float64')
 
     # I have the option to put in UT here. Not going to rn but could at a later point
     # Create an empty dataset at the time values that we made above
