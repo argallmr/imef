@@ -8,6 +8,15 @@ import xarray as xr
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
 
+# If numbers overflow, raise an error instead of raising a warning
+np.seterr(over='raise')
+
+# Note that it is possible that NaN values appear in the final xarray object. This is because there were no data points in those bins
+# To remove these values for a single variable, use xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name']) == False, drop=True) (Variable has no indices)
+# Or xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name'][:,0]) == False, drop=True) (With indices)
+# Repeat this for each variable to remove all nan values from the final product
+
+# To Do -> When next run of this is complete, check for overflow errors, determine which variables need to be cast to float64, and do so
 
 def main():
     # Take arguments and set up variables
@@ -34,8 +43,10 @@ def main():
     sc = args.sc
     mode = args.mode
     level = args.level
-    t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
-    t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
+    start = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
+    end = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
+
+    t0 = start
 
     # Name of the file where the sampled data will go
     filename = args.filename
@@ -51,10 +62,7 @@ def main():
     # A datetime number to increment the dates by one day, but without extending into the next day
     one_day = dt.timedelta(days=1) - dt.timedelta(microseconds=1)
 
-    # Download the kp data. This is done outside the loop since it downloads all the data for 1 year at once, so repeating per day would be very inefficient
-    kp_data = dd.get_kp_data(t0, t1, expand=True)
-
-    while t0 < t1:
+    while t0 < end:
         # Assign the start time
         ti = t0
 
@@ -65,8 +73,8 @@ def main():
         te = ti + one_day - timediff
 
         # If te were to extend past the desired end date, make te the desired end date
-        if te > t1:
-            te = t1
+        if te > end:
+            te = end
 
         print(ti, '%%', te)
 
@@ -130,6 +138,9 @@ def main():
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
+
+    # Download the kp data. This is done outside the loop since it downloads all the data for 1 year at once, so repeating per day would be very inefficient
+    kp_data = dd.get_kp_data(start, end, complete_data['time'].values)
 
     # Merge the kp data with the rest of the data
     complete_data = xr.merge([complete_data, kp_data])

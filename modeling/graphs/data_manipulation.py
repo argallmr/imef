@@ -93,7 +93,7 @@ def slice_data_by_time(full_data, ti, te):
 
 
 def expand_5min(time, kp):
-    # The assumption here is that they are 3 hour bins, since this is made for Kp. Could be generalized later
+    # This is for a very specific case, where you are given times at the very beginning of a day, and you only want 5 minute intervals. All other cases should be run through expand_kp
 
     # Expanding the kp values is easy, as np.repeat does this for us.
     # Eg: np.repeat([1,2,3],3) = [1,1,1,2,2,2,3,3,3]
@@ -123,6 +123,41 @@ def expand_5min(time, kp):
 
     return new_times, new_kp
 
+def expand_kp(kp_times, kp, time_to_expand_to):
+    # Note that this function is capable of doing the same thing as expand_5min. However this is slower (I'm pretty sure it's slower at least)
+
+    # Because Datetime objects that are placed into xarrays get transformed into datetime64 objects, and the conventional methods of changing them back do not seem to work,
+    # You have to make a datetime64 version of the kp_times so that they can be subtracted correctly
+
+    # Iterate through all times and convert them to datetime64 objects
+    for time in kp_times:
+        # The timedelta is done because the min function used later favors the lower value when a tie is found. We want the upper value to be favored, so we have to change the time a little
+        time64 = np.datetime64(time-dt.timedelta(microseconds=1))
+        if time == kp_times[0]:
+            datetime64_kp_times = np.array([time64])
+        else:
+            datetime64_kp_times = np.append(datetime64_kp_times, [time64])
+
+    # This will be used to find the date closest to each time given
+    absolute_difference_function = lambda list_value: abs(list_value - given_value)
+
+    # Iterate through all times that we want to expand kp to
+    for given_value in time_to_expand_to:
+
+        # Find the closest value
+        closest_value = min(datetime64_kp_times, key=absolute_difference_function)
+
+        # Find the corresponding index of the closest value
+        index = np.where(datetime64_kp_times == closest_value)
+
+        if given_value == time_to_expand_to[0]:
+            # If this is the first iteration, create an ndarray containing the kp value at the corresponding index
+            new_kp = np.array([kp[index]])
+        else:
+            # If this is not the first iteration, combine the new kp value with the existing ones
+            new_kp = np.append(new_kp, kp[index])
+
+    return new_kp
 
 def interpolate_data_like(data, data_like):
     data = data.interp_like(data_like)
@@ -142,6 +177,7 @@ def create_timestamps(data, vars_to_bin, ti, te):
     # This section adapts for the 4 hour time difference (in seconds) that timestamp() automatically applies to datetime. Otherwise the times from data and these time will not line up right
     # This appears because timestamp() corrects for local time difference, while the np.datetime64 method did not
     # This could be reversed and added to all the times in data, but I chose this way.
+    # Note that this can cause shifts in hours if the timezone changes
     ti = ti.timestamp() - 14400
     te = te.timestamp() - 14400
 
@@ -156,7 +192,7 @@ def create_timestamps(data, vars_to_bin, ti, te):
     # Create an nparray where the new 5 minute interval datetime64 objects will go
     new_times = np.array([], dtype=object)
 
-    # Create the datetime64 objects and add them to new_times
+    # Create the datetime objects and add them to new_times
     for time in bin_edges:
         # Don't run if the time value is the last index in bin_edges. There is 1 more bin edge than there is mean values
         # This is because bin_edges includes an extra edge to encompass all the means
@@ -173,7 +209,7 @@ def create_timestamps(data, vars_to_bin, ti, te):
             new_times = np.append(new_times, [new_time])
 
     # Return timestamp versions of ti, te, and the datetime64 objects.
-    # Also return the datetime64 objects of the 5 minute intervals created in binned_statistic
+    # Also return the datetime objects of the 5 minute intervals created in binned_statistic
     return ti, te, timestamps, new_times
 
 
@@ -181,6 +217,9 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
     # The assumption with this function is that exactly 1 day of data is being inputted. Otherwise this will not work properly, as the number of bins will be incorrect
     # There is probably a simple fix to this, but it isn't implemented
     # Also, any variables that are not in var_to_bin are lost (As they can't be mapped to the new times otherwise)
+    # Note that it is possible that NaN values appear in the final xarray object. This is because there were no data points in those bins
+    # To remove these values, use xarray_object = test.where(np.isnan(test['variable_name']) == False, drop=True) (Variable has no indices)
+    # Or xarray_object = xarray_object.where(np.isnan(test['variable_name'][:,0]) == False, drop=True) (With indices)
 
     # In order to bin the values properly, we need to convert the datetime objects to integers. I chose to use unix timestamps to do so
     ti, te, timestamps, new_times = create_timestamps(data, vars_to_bin, ti, te)
