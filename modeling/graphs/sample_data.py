@@ -12,8 +12,8 @@ np.set_printoptions(threshold=np.inf)
 np.seterr(over='raise')
 
 # Note that it is possible that NaN values appear in the final xarray object. This is because there were no data points in those bins
-# To remove these values for a single variable, use xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name']) == False, drop=True) (Variable has no indices)
-# Or xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name'][:,0]) == False, drop=True) (With indices)
+# To remove these values for a single variable, use "xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name']) == False, drop=True)" (Variable has no indices)
+# Or "xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name'][:,0]) == False, drop=True)" (With indices)
 # Repeat this for each variable to remove all nan values from the final product
 
 # To Do -> When next run of this is complete, check for overflow errors, determine which variables need to be cast to float64, and do so

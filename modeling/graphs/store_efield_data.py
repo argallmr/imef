@@ -5,7 +5,8 @@ import xarray as xr
 from data_manipulation import rot2polar, cart2polar, remove_corot_efield, remove_spacecraft_efield
 import argparse
 import plot_nc_data as xrplot
-from download_data import get_fgm_data, get_edi_data, get_mec_data
+from storage_objects import LandMLT
+from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data
 
 # For debugging purposes
 # np.set_printoptions(threshold=np.inf)
@@ -14,7 +15,7 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data
 # I believe it is a small issue with an error not getting caught, or something similar
 
 
-def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT):
+def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, extra_data=None):
     RE = 6371  # km. This is the conversion from km to Earth radii
 
     # Make sure that the data file is not empty
@@ -39,14 +40,22 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
             edi_data['E_polar'] = (rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
 
         # Prepare to average and bin the data
-        count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range)
+        count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, L_and_MLT)
 
         # Create the empty dataset
-        imef_data = create_imef_data(L, MLT, count, nL, nMLT, polar)
+        imef_data = create_imef_data(L_and_MLT, count, polar)
 
         # Average and bin the data into a file called filename
-        imef_data = bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename,
-                             polar)
+        imef_data = bin_data(imef_data, edi_data, L_and_MLT, binnum, created_file, filename, polar)
+
+        # if extra_data != None:
+        #
+        #     x = {'Kp': get_kp_data}
+        #
+        #     for variable in extra_data:
+        #
+        #         x[variable](ti, te, expand=True)
+
 
         # If this is the first run, let the program know that the file has been created
         # This is done so that any existing file with the same name as filename is overwritten,
@@ -56,7 +65,7 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
         return imef_data, created_file
 
 
-def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
+def get_binned_statistics(edi_data, mec_data, L_and_MLT):
     # Count returns the amount of data points that fell in each bin
     # x_edge and y_edge represent the start and end of each of the bins in terms of L and MLT
     # binnum returns the bin number given to each data point in the dataset
@@ -66,56 +75,56 @@ def get_binned_statistics(edi_data, mec_data, nL, nMLT, L_range, MLT_range):
                                                         y=mec_data['MLT'],
                                                         values=edi_data['E_GSE'].loc[:, 'Ex'],
                                                         statistic='count',
-                                                        bins=[nL, nMLT],
-                                                        range=[L_range, MLT_range])
+                                                        bins=[L_and_MLT.nL, L_and_MLT.nMLT],
+                                                        range=[L_and_MLT.L_range, L_and_MLT.MLT_range])
 
     return count, x_edge, y_edge, binnum
 
 
-def create_imef_data(L, MLT, count, nL, nMLT, polar):
+def create_imef_data(L_and_MLT, count, polar):
     # Creating an empty Dataset where the averaged data values will go
     if polar:
-        L2, MLT2 = xr.broadcast(L, MLT)
+        L2, MLT2 = xr.broadcast(L_and_MLT.L, L_and_MLT.MLT)
         L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
         MLT2 = MLT2.rename({'L': 'iL', 'MLT': 'iMLT'})
         imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'polar': ['r', 'phi']})
 
         imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_mean'] = xr.DataArray(np.zeros((nL, nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+        imef_data['E_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
                                            coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_std'] = xr.DataArray(np.zeros((nL, nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+        imef_data['E_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
                                           coords={'L': L2, 'MLT': MLT2})
     else:
-        L2, MLT2 = xr.broadcast(L, MLT)
+        L2, MLT2 = xr.broadcast(L_and_MLT.L, L_and_MLT.MLT)
         L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
         MLT2 = MLT2.rename({'L': 'iL', 'MLT': 'iMLT'})
         imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'cartesian': ['x', 'y', 'z']})
 
         imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_mean'] = xr.DataArray(np.zeros((nL, nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+        imef_data['E_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
                                            coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_std'] = xr.DataArray(np.zeros((nL, nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+        imef_data['E_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
                                           coords={'L': L2, 'MLT': MLT2})
 
     return imef_data
 
 
-def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, filename, polar):
-    for ibin in range((nL + 2) * (nMLT + 2)):
+def bin_data(imef_data, edi_data, L_and_MLT, binnum, created_file, filename, polar):
+    for ibin in range((L_and_MLT.nL + 2) * (L_and_MLT.nMLT + 2)):
         # `binned_statistic_2d` adds one bin before and one bin after the specified
         # bin `range` in each dimension. This means the number of bin specified by
         # `bins` is actually two less per dimension than the actual number of bins used.
         # These are the indices into the "N+2" grid
-        icol = ibin % (nMLT + 2)
-        irow = ibin // (nMLT + 2)
-        bin = (icol + 1) + irow * (nMLT + 2)  # binned_statistic_2d bin number (1-based: ibin+1)
-        if (irow == 0) | (irow > nL) | (icol == 0) | (icol > nMLT):
+        icol = ibin % (L_and_MLT.nMLT + 2)
+        irow = ibin // (L_and_MLT.nMLT + 2)
+        bin = (icol + 1) + irow * (L_and_MLT.nMLT + 2)  # binned_statistic_2d bin number (1-based: ibin+1)
+        if (irow == 0) | (irow > L_and_MLT.nL) | (icol == 0) | (icol > L_and_MLT.nMLT):
             continue
 
         # These are the indices into our data (skipping bins outside our data range)
         ir = irow - 1  # data row
         ic = icol - 1  # data column
-        ib = ic + ir * (nMLT + 2)  # flattened data index
+        ib = ic + ir * (L_and_MLT.nMLT + 2)  # flattened data index
 
         # Do not do anything if the bin is empty
         #   - equivalently: if imef_data['count'][ir,ic] == 0:
@@ -132,8 +141,8 @@ def bin_data(imef_data, edi_data, nL, nMLT, binnum, dL, dMLT, created_file, file
 
     # Each bin goes from x to x+dL, but the index associating those values only starts at the beginning of the bin, which is misleading
     # Change the index to be in the middle of the bin
-    imef_data['L'] = imef_data['L'] + dL / 2
-    imef_data['MLT'] = imef_data['MLT'] + dMLT / 2
+    imef_data['L'] = imef_data['L'] + L_and_MLT.dL / 2
+    imef_data['MLT'] = imef_data['MLT'] + L_and_MLT.dMLT / 2
 
     if not created_file:
         # If this is the first run, create a file (or overwrite any existing file) with the name defined by filename
@@ -189,6 +198,9 @@ def main():
 
     parser.add_argument('level', type=str, help='Data level')
 
+    parser.add_argument('extra_data', type=str, help='Data other than electric field data that the user wants downloaded and binned. Formatting: [ex1, ex2, ...]. '
+                                                     'If no extra data points, put None. Options for extra data are: Kp. More may be added later')
+
     parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
 
     parser.add_argument('end_date', type=str, help='End date of the data interval: ''"YYYY-MM-DDTHH:MM:SS""')
@@ -205,13 +217,21 @@ def main():
     args = parser.parse_args()
 
     # Set up variables
-    sc = args.sc  # Chosen spacecraft
-    mode = args.mode  # Chosen data type
-    level = args.level  # Chosen level
+    sc = args.sc
+    mode = args.mode
+    level = args.level
 
-    # Start and end dates
+    # Start and end dates for download
     t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
     t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
+
+    # Set up the extra data argument
+    if args.extra_data == 'None' or args.extra_data == 'none':
+        extra_data = None
+    else:
+        extra_data = args.extra_data.split(",")
+        if type(extra_data) == str:
+            extra_data = [extra_data]
 
     # The name of the file where the data will be stored
     filename = args.filename
@@ -237,19 +257,23 @@ def main():
     nL = len(L)
     nMLT = len(MLT)
 
+    # Container which holds all of the above values. Cuts down of number of arguments passed in elsewhere
+    L_and_MLT = LandMLT(L_range, MLT_range, dL, dMLT, L, MLT, nL, nMLT)
+
     # Boolean containing whether the file has been created
     if args.exists:
         created_file = True
     else:
         created_file = False
 
-    # Download and process the data separately for each individual orbit,
-    # So loop through every value in orbits
+    # Download and process the data separately for each individual day,
+    # So loop through every value in day
     while t0 < t1:
         # Assign the start time
         ti = t0
 
-        # Determine the time difference between ti and midnight. Only will be a non-zero number on the first run through the loop
+        # Determine the time difference between ti and midnight. Only will be a non-1 microsecond number on the first run through the loop
+        # (Though it will not always be different on the first run)
         timediff = dt.datetime.combine(dt.date.min, ti.time()) - dt.datetime.min
 
         # Assign the end date. timediff is used so that data is only downloaded from 1 day per run through the loop, which prevents bugs from appearing
@@ -281,7 +305,7 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, nL, nMLT, L_range, MLT_range, L, MLT, dL, dMLT)
+            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, extra_data)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
@@ -289,7 +313,7 @@ def main():
     # Plot the data, unless specified otherwise
     if not args.no_show:
         # If the user chose to store edi data in polar coordinates, plot that data. Otherwise plot in cartesian
-        if args.polar:
+        if polar:
             xrplot.plot_efield_polar(nL, nMLT, imef_data)
         else:
             xrplot.plot_efield_cartesian(nL, nMLT, imef_data)
