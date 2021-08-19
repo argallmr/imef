@@ -14,8 +14,62 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data
 # Known Issue: Standard deviation does not work properly. It works over short intervals (ex: 9/10/15-9/15/15, 9/10/15-10/15/15), but over the whole 6 years numerous 0 and inf values appear
 # I believe it is a small issue with an error not getting caught, or something similar
 
+# TO DO: Modify this, sample_data, and download_data to use the DownloadParameters container instead of using individual arguments
 
-def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, extra_data=None):
+
+def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data):
+
+    # EDI data must be prepared separately to remove unwanted parts of the data (and convert the data to polar if the user chose to do so).
+    # THERE ARE NAN'S SHOWING UP IN THE BEGINNING AND END OF THIS FUNCTION. MUST REMOVE
+    edi_data, mec_data = prep_edi_data(edi_data, fgm_data, mec_data, polar)
+
+    # Create a list of data that needs to be binned
+    if polar:
+        data_to_bin = [[edi_data, 'E_GSE_polar']]
+    else:
+        data_to_bin = [[edi_data, 'E_GSE']]
+
+    # A dictionary containing the keys for extra data that is available. As more options are created they will be added into here.
+    # Note that if the arguments for different functions vary, this part will have to be edited to account for it (not sure how yet)
+    x = {'Kp': get_kp_data}
+
+    # If there is extra data, iterate through the given list of desired variables, download them, and add them to the list of data to bin
+    if extra_data[0] != None:
+        for variable in extra_data:
+            more_data = x[variable](ti, te, expand=edi_data['time'].values)
+            data_to_bin.append([more_data, variable])
+
+    # Prepare to average and bin the data.
+    count, x_edge, y_edge, binnum = get_binned_statistics(data_to_bin[0][0], mec_data, L_and_MLT)
+
+    # Create the empty dataset
+    imef_data = create_imef_data(data_to_bin, L_and_MLT, count, polar)
+
+    # Iterate through data_to_bin and bin all the data
+    for data in data_to_bin:
+
+        # Average and bin the data into a file called filename
+        imef_data = bin_data(imef_data, data[0], data[1], L_and_MLT, binnum, created_file, filename)
+
+        # Add the newly binned data to the existing data
+        if data == data_to_bin[0]:
+            all_binned_data = [imef_data]
+        else:
+            all_binned_data.append(imef_data)
+
+    imef_data = xr.merge(all_binned_data)
+
+    imef_data.to_netcdf(filename)
+
+    # If this is the first run, let the program know that the file has been created
+    # This is done so that any existing file with the same name as filename is overwritten,
+    # and the new data is not averaged into any existing data from previous runs
+    created_file = True
+
+    return imef_data, created_file
+
+
+def prep_edi_data(edi_data, fgm_data, mec_data, polar):
     RE = 6371  # km. This is the conversion from km to Earth radii
 
     # Make sure that the data file is not empty
@@ -37,35 +91,14 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
             # Factor converts the MEC data from kilometers to RE
             # Instead of positive x facing the right, it is facing the left in MEC data. So we have to shift the angle around 180 degrees so the directions match up
             mec_data['r_polar'] = cart2polar(mec_data['R_sc'], factor=1 / RE, shift=np.pi)
-            edi_data['E_polar'] = (rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
+            edi_data['E_GSE_polar'] = (rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
+    else:
+        raise ValueError("Electric field data file is empty")
 
-        # Prepare to average and bin the data
-        count, x_edge, y_edge, binnum = get_binned_statistics(edi_data, mec_data, L_and_MLT)
-
-        # Create the empty dataset
-        imef_data = create_imef_data(L_and_MLT, count, polar)
-
-        # Average and bin the data into a file called filename
-        imef_data = bin_data(imef_data, edi_data, L_and_MLT, binnum, created_file, filename, polar)
-
-        # if extra_data != None:
-        #
-        #     x = {'Kp': get_kp_data}
-        #
-        #     for variable in extra_data:
-        #
-        #         x[variable](ti, te, expand=True)
+    return edi_data, mec_data
 
 
-        # If this is the first run, let the program know that the file has been created
-        # This is done so that any existing file with the same name as filename is overwritten,
-        # and the new data is not averaged into any existing data from previous runs
-        created_file = True
-
-        return imef_data, created_file
-
-
-def get_binned_statistics(edi_data, mec_data, L_and_MLT):
+def get_binned_statistics(data, mec_data, L_and_MLT):
     # Count returns the amount of data points that fell in each bin
     # x_edge and y_edge represent the start and end of each of the bins in terms of L and MLT
     # binnum returns the bin number given to each data point in the dataset
@@ -73,7 +106,7 @@ def get_binned_statistics(edi_data, mec_data, L_and_MLT):
     # Since E_GSE is in edi_data whether or not the user wants polar, it will work either way.
     count, x_edge, y_edge, binnum = binned_statistic_2d(x=mec_data['L'],
                                                         y=mec_data['MLT'],
-                                                        values=edi_data['E_GSE'].loc[:, 'Ex'],
+                                                        values=data['E_GSE'].loc[:, 'Ex'],
                                                         statistic='count',
                                                         bins=[L_and_MLT.nL, L_and_MLT.nMLT],
                                                         range=[L_and_MLT.L_range, L_and_MLT.MLT_range])
@@ -81,8 +114,8 @@ def get_binned_statistics(edi_data, mec_data, L_and_MLT):
     return count, x_edge, y_edge, binnum
 
 
-def create_imef_data(L_and_MLT, count, polar):
-    # Creating an empty Dataset where the averaged data values will go
+def create_imef_data(data, L_and_MLT, count, polar):
+    # Creating an empty Dataset where the averaged EDI data values will go
     if polar:
         L2, MLT2 = xr.broadcast(L_and_MLT.L, L_and_MLT.MLT)
         L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
@@ -90,9 +123,9 @@ def create_imef_data(L_and_MLT, count, polar):
         imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'polar': ['r', 'phi']})
 
         imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+        imef_data['E_GSE_polar_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
                                            coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+        imef_data['E_GSE_polar_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
                                           coords={'L': L2, 'MLT': MLT2})
     else:
         L2, MLT2 = xr.broadcast(L_and_MLT.L, L_and_MLT.MLT)
@@ -101,15 +134,26 @@ def create_imef_data(L_and_MLT, count, polar):
         imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'cartesian': ['x', 'y', 'z']})
 
         imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+        imef_data['E_GSE_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
                                            coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+        imef_data['E_GSE_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
                                           coords={'L': L2, 'MLT': MLT2})
+
+    # Each bin goes from x to x+dL, but the index associating those values only starts at the beginning of the bin, which is misleading
+    # Change the index to be in the middle of the bin
+    imef_data['L'] = imef_data['L'] + L_and_MLT.dL / 2
+    imef_data['MLT'] = imef_data['MLT'] + L_and_MLT.dMLT / 2
+
+    # If there are other data points that need to be binned, create those data values here
+    for index in range(1, len(data)):
+        data_name=data[index][1]
+        imef_data[data_name+'_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT)), dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
+        imef_data[data_name+'_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT)), dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
 
     return imef_data
 
 
-def bin_data(imef_data, edi_data, L_and_MLT, binnum, created_file, filename, polar):
+def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filename):
     for ibin in range((L_and_MLT.nL + 2) * (L_and_MLT.nMLT + 2)):
         # `binned_statistic_2d` adds one bin before and one bin after the specified
         # bin `range` in each dimension. This means the number of bin specified by
@@ -132,44 +176,30 @@ def bin_data(imef_data, edi_data, L_and_MLT, binnum, created_file, filename, pol
         if sum(bool_idx) == 0:
             continue
 
-        if polar:
-            imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].mean(dim='time')
-            imef_data['E_std'].loc[ir, ic, :] = edi_data['E_polar'][bool_idx, :].std(dim='time')
-        else:
-            imef_data['E_mean'].loc[ir, ic, :] = edi_data['E_GSE'][bool_idx, :].mean(dim='time')
-            imef_data['E_std'].loc[ir, ic, :] = edi_data['E_GSE'][bool_idx, :].std(dim='time')
+        imef_data[data_name+'_mean'].loc[ir, ic] = data[data_name][bool_idx].mean(dim='time')
+        imef_data[data_name+'_std'].loc[ir, ic] = data[data_name][bool_idx].std(dim='time')
 
-    # Each bin goes from x to x+dL, but the index associating those values only starts at the beginning of the bin, which is misleading
-    # Change the index to be in the middle of the bin
-    imef_data['L'] = imef_data['L'] + L_and_MLT.dL / 2
-    imef_data['MLT'] = imef_data['MLT'] + L_and_MLT.dMLT / 2
-
-    if not created_file:
-        # If this is the first run, create a file (or overwrite any existing file) with the name defined by filename
-        imef_data.to_netcdf(filename)
-    else:
-        # If this is not the first run, average the data in the file with the new imef_data
-        # And export the new averaged data to the existing file
-        imef_data = average_data(imef_data, filename)
-        imef_data.to_netcdf(filename)
+    if created_file == True:
+        # If the file already exists, average the new data with the existing data
+        imef_data = average_data(imef_data, data_name, filename)
 
     return imef_data
 
 
-def average_data(imef_data, filename):
+def average_data(imef_data, data_name, filename):
     # Open file
     file_data = xr.open_dataset(filename)
 
     # Calculate weighted mean of incoming and existing data
-    average_mean = (imef_data['count'] * imef_data['E_mean'] + file_data['count'] * file_data['E_mean']) / (
+    average_mean = (imef_data['count'] * imef_data[data_name+'_mean'] + file_data['count'] * file_data[data_name+'_mean']) / (
             imef_data['count'] + file_data['count'])
 
     # For any bins that have 0 data points, the above divides by 0 and returns NaN. Change the NaN's to 0's
     average_mean = average_mean.fillna(0)
 
     # Calculate weighted standard deviation of incoming and existing data
-    average_std = np.sqrt((imef_data['count'] * (imef_data['E_std'] ** 2 + (imef_data['E_mean'] - average_mean) ** 2) +
-                   file_data['count'] * (file_data['E_std'] ** 2 + (file_data['E_mean'] - average_mean) ** 2)) / \
+    average_std = np.sqrt((imef_data['count'] * (imef_data[data_name+'_std'] ** 2 + (imef_data[data_name+'_mean'] - average_mean) ** 2) +
+                   file_data['count'] * (file_data[data_name+'_std'] ** 2 + (file_data[data_name+'_mean'] - average_mean) ** 2)) / \
                   (imef_data['count'] + file_data['count']))
 
     average_std = average_std.fillna(0)
@@ -177,8 +207,8 @@ def average_data(imef_data, filename):
     # Place the newly found averages to imef_data.
     # This could also just be made into a new Dataset, but it's easier this way.
     imef_data['count'].values = file_data['count'].values + imef_data['count'].values
-    imef_data['E_mean'].values = average_mean.values
-    imef_data['E_std'].values = average_std.values
+    imef_data[data_name+'_mean'].values = average_mean.values
+    imef_data[data_name+'_std'].values = average_std.values
 
     file_data.close()
 
@@ -198,7 +228,7 @@ def main():
 
     parser.add_argument('level', type=str, help='Data level')
 
-    parser.add_argument('extra_data', type=str, help='Data other than electric field data that the user wants downloaded and binned. Formatting: [ex1, ex2, ...]. '
+    parser.add_argument('extra_data', type=str, help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
                                                      'If no extra data points, put None. Options for extra data are: Kp. More may be added later')
 
     parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
@@ -227,7 +257,7 @@ def main():
 
     # Set up the extra data argument
     if args.extra_data == 'None' or args.extra_data == 'none':
-        extra_data = None
+        extra_data = [None]
     else:
         extra_data = args.extra_data.split(",")
         if type(extra_data) == str:
@@ -242,7 +272,7 @@ def main():
     one_day = dt.timedelta(days=1) - dt.timedelta(microseconds=1)
 
     # Ranges for L and MLT values to be binned for
-    L_range = (0, 25)  # RE
+    L_range = (4, 10)  # RE
     MLT_range = (0, 24)  # Hours
 
     # Size of the L and MLT bins
@@ -305,7 +335,7 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, extra_data)
+            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff

@@ -17,8 +17,8 @@ def plot_efield_cartesian(nL, nMLT, imef_data):
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Ex = imef_data['E_mean'].loc[:, :, 'x'].values.reshape(nL, nMLT)
-    Ey = imef_data['E_mean'].loc[:, :, 'y'].values.reshape(nL, nMLT)
+    Ex = imef_data['E_GSE_mean'].loc[:, :, 'x'].values.reshape(nL, nMLT)
+    Ey = imef_data['E_GSE_mean'].loc[:, :, 'y'].values.reshape(nL, nMLT)
 
     # Plot the data
     fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
@@ -48,8 +48,8 @@ def plot_efield_polar(nL, nMLT, imef_data):  # Update this to spherical if neede
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Er = imef_data['E_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
-    Ephi = imef_data['E_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
+    Er = imef_data['E_GSE_polar_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
+    Ephi = imef_data['E_GSE_polar_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
     # Convert to cartesian coordinates
     # Scaling the vectors doesn't work correctly unless this is done.
