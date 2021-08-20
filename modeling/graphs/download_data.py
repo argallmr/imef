@@ -1,4 +1,4 @@
-from pymms.data import edi, util, fgm, fpi
+from pymms.data import edi, util, fgm, fpi, edp
 import numpy as np
 import xarray as xr
 from heliopy.data import omni
@@ -135,45 +135,29 @@ def get_edp_data(sc, level, ti, te, binned=False):
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
 
-    # Create the names of the variables that we will download
-    # Time
-    t_vname_fast = '_'.join((sc, 'edp', 'epoch', 'fast', level))
-    t_vname_slow = '_'.join((sc, 'edp', 'epoch', 'slow', level))
+    edp_data_fast = edp.load_data(sc, 'fast', level, start_date=ti, end_date=te)
+    edp_data_slow = edp.load_data(sc, 'slow', level, start_date=ti, end_date=te)
 
-    # fast efield data, and the label for the E_index
-    e_fast_vname = '_'.join((sc, 'edp', 'dce', 'gse', 'fast', level))
+    # the label for the E_index of fast efield data
     e_fast_vname_label = '_'.join((sc, 'edp', 'label1', 'fast', level))
 
-    # slow efield data, and the label for the E_index
-    e_slow_vname = '_'.join((sc, 'edp', 'dce', 'gse', 'slow', level))
+    # the label for the E_index of slow efield data
     e_slow_vname_label = '_'.join((sc, 'edp', 'label1', 'slow', level))
 
-    # Load edp_fast data
-    edp_data_fast = util.load_data(sc, 'edp', 'fast', level, optdesc='dce', start_date=ti, end_date=te,
-                                   variables=[t_vname_fast, e_fast_vname, e_fast_vname_label])
-
-    # Rename the variables
-    edp_data_fast = edp_data_fast.rename({t_vname_fast: 'time',
-                                          e_fast_vname: 'E_EDP',
+    edp_data_fast = edp_data_fast.rename({'E_GSE': 'E_EDP',
                                           e_fast_vname_label: 'E_index'})
 
-    # Load edp_slow data
-    edp_data_slow = util.load_data(sc, 'edp', 'slow', level, optdesc='dce', start_date=ti, end_date=te,
-                                   variables=[t_vname_slow, e_slow_vname, e_slow_vname_label])
-
-    # Rename the variables
-    edp_data_slow = edp_data_slow.rename({t_vname_slow: 'time',
-                                          e_slow_vname: 'E_EDP',
+    edp_data_slow = edp_data_slow.rename({'E_GSE': 'E_EDP',
                                           e_slow_vname_label: 'E_index'})
 
     # Combine fast and slow data
-    edp_data = xr.concat([edp_data_fast, edp_data_slow], dim='time')
+    edp_data = xr.merge([edp_data_fast, edp_data_slow])
 
     # Reorganize the data to sort by time
     edp_data = edp_data.sortby('time')
 
     # Cast the float32 values to float64 values to prevent overflow when binning
-    edp_data['E_EDP'].values=edp_data['E_EDP'].values.astype('float64')
+    edp_data['E_EDP'].values = edp_data['E_EDP'].values.astype('float64')
 
     if binned == True:
         edp_data = dm.bin_5min(edp_data, ['E_EDP'], ['E'], ti, te)
