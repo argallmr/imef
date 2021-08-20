@@ -4,7 +4,7 @@ import data_manipulation as dm
 
 def main():
     # Open Data
-    imef_data = xr.open_dataset('binned_edi.nc')
+    imef_data = xr.open_dataset('6years_store_efield_data.nc')
 
     # Select Desired Range of Data
     newtest = imef_data.where(imef_data.iL < 11, drop=True)
