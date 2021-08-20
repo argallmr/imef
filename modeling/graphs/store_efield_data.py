@@ -20,7 +20,8 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data
 def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data):
 
     # EDI data must be prepared separately to remove unwanted parts of the data (and convert the data to polar if the user chose to do so).
-    # THERE ARE NAN'S SHOWING UP IN THE BEGINNING AND END OF THIS FUNCTION. MUST REMOVE
+    # THERE ARE NAN'S SHOWING UP IN THE BEGINNING AND END OF THIS FUNCTION. MUST REMOVE.
+    # Turns out the NaN's appear in interp_like. A couple values get trashed in there. Not a big deal since bin handles the NaN's, but would be nice to remove.
     edi_data, mec_data = prep_edi_data(edi_data, fgm_data, mec_data, polar)
 
     # Create a list of data that needs to be binned
@@ -230,6 +231,9 @@ def main():
 
     parser.add_argument('extra_data', type=str, help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
                                                      'If no extra data points, put None. Options for extra data are: Kp. More may be added later')
+
+    parser.add_argument('driving_parameter', type=str, help='Choose a driving parameter to separate the data by. Formatting: [driving_parameter,number_of_bins]'
+                                                            'ex: [Kp,3]. For no driving parameter, put [None]. Options for driving parameters are: Kp. More may be added later')
 
     parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
 

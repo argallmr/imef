@@ -48,8 +48,8 @@ def plot_efield_polar(nL, nMLT, imef_data):  # Update this to spherical if neede
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Er = imef_data['E_GSE_polar_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
-    Ephi = imef_data['E_GSE_polar_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
+    Er = imef_data['E_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
+    Ephi = imef_data['E_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
     # Convert to cartesian coordinates
     # Scaling the vectors doesn't work correctly unless this is done.
@@ -87,7 +87,7 @@ def plot_potential(nL, nMLT, imef_data, V_data):
     phi = (2 * np.pi * new_values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)-.5
 
-    extra_phi_value = 2 * np.pi
+    extra_phi_value = phi[0][0]+2*np.pi
 
     for counter in range (7):
         add_to_r = np.append(r[counter], r[counter][0])
