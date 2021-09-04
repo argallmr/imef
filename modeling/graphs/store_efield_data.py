@@ -15,30 +15,13 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data
 # I believe it is a small issue with an error not getting caught, or something similar
 
 # TO DO: Modify this, sample_data, and download_data to use the DownloadParameters container instead of using individual arguments
+# Driving parameter and extra data work together. They don't. It gets separated but not actually ordered to bin
 
 
-def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data):
-
+def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data, driving_parameter):
     # EDI data must be prepared separately to remove unwanted parts of the data (and convert the data to polar if the user chose to do so).
-    # THERE ARE NAN'S SHOWING UP IN THE BEGINNING AND END OF THIS FUNCTION. MUST REMOVE.
     # Turns out the NaN's appear in interp_like. A couple values get trashed in there. Not a big deal since bin handles the NaN's, but would be nice to remove.
-    edi_data, mec_data = prep_edi_data(edi_data, fgm_data, mec_data, polar)
-
-    # Create a list of data that needs to be binned
-    if polar:
-        data_to_bin = [[edi_data, 'E_GSE_polar']]
-    else:
-        data_to_bin = [[edi_data, 'E_GSE']]
-
-    # A dictionary containing the keys for extra data that is available. As more options are created they will be added into here.
-    # Note that if the arguments for different functions vary, this part will have to be edited to account for it (not sure how yet)
-    x = {'Kp': get_kp_data}
-
-    # If there is extra data, iterate through the given list of desired variables, download them, and add them to the list of data to bin
-    if extra_data[0] != None:
-        for variable in extra_data:
-            more_data = x[variable](ti, te, expand=edi_data['time'].values)
-            data_to_bin.append([more_data, variable])
+    mec_data, data_to_bin = prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter, ti, te)
 
     # Prepare to average and bin the data.
     count, x_edge, y_edge, binnum = get_binned_statistics(data_to_bin[0][0], mec_data, L_and_MLT)
@@ -70,7 +53,7 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
     return imef_data, created_file
 
 
-def prep_edi_data(edi_data, fgm_data, mec_data, polar):
+def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter, ti, te):
     RE = 6371  # km. This is the conversion from km to Earth radii
 
     # Make sure that the data file is not empty
@@ -87,16 +70,84 @@ def prep_edi_data(edi_data, fgm_data, mec_data, polar):
         # Remove the corotation electric field
         edi_data = remove_corot_efield(edi_data, mec_data, RE)
 
+        # A dictionary containing the keys for extra data that is available. As more options are created they will be added into here.
+        # Note that if the arguments for different functions vary, this part will have to be edited to account for it (not sure how yet)
+        x = {'Kp': get_kp_data(ti, te, expand=edi_data['time'].values)}
+
+        # A 2D list that contains the data to be binned, along with the name that it will be given when binned.
+
         if polar:
             # Convert MEC and EDI data to polar coordinates
             # Factor converts the MEC data from kilometers to RE
             # Instead of positive x facing the right, it is facing the left in MEC data. So we have to shift the angle around 180 degrees so the directions match up
             mec_data['r_polar'] = cart2polar(mec_data['R_sc'], factor=1 / RE, shift=np.pi)
             edi_data['E_GSE_polar'] = (rot2polar(edi_data['E_GSE'], mec_data['r_polar'], 'E_index').assign_coords({'polar': ['r', 'phi']}))
+            edi_name='E_GSE_polar'
+        else:
+            edi_name='E_GSE'
+
+        # This is a list that contains an xarray dataset with the data to be binned, the name of the variable to be binned,
+        # and a boolean that states whether the data depends on cartesian/polar coordinates
+        data_to_bin = [[edi_data, edi_name, True]]
+
+        # If there is extra data, iterate through the given list of desired variables, download them, and add them to the list of data to bin
+        extra_data_values = []
+        if extra_data[0] != None:
+            for variable in extra_data:
+                more_data = x[variable]
+                extra_data_values = extra_data_values.append(more_data)
+                data_to_bin.append([more_data, variable, False]) #NOTE THAT IT IS NOT ALWAYS FALSE. IF THERE IS ONE THAT IS TRUE THIS NEEDS TO BE ADJUSTED
+
+        # If there is a driving parameter, handle it
+        if driving_parameter[0] != None:
+            data_to_bin = handle_driving_parameter(driving_parameter, x, extra_data_values, edi_data, edi_name, data_to_bin)
     else:
+        # There should be stuff in the file, so if there isn't don't do anything
         raise ValueError("Electric field data file is empty")
 
-    return edi_data, mec_data
+    return mec_data, data_to_bin
+
+
+def handle_driving_parameter(driving_parameter, x, extra_data_values, edi_data, edi_name, data_to_bin):
+    # Download the driving parameter data
+    driving_param_data = x[driving_parameter[0]]
+
+    # Create an empty list that will contain all the newly separated data
+    separated_data = []
+
+    # Create one xarray object with all the data that is going to be binned
+    total_data = xr.merge(extra_data_values)
+    total_data = xr.merge([total_data, driving_param_data, edi_data])
+
+    # Determine the step that the while loop will use
+    step = 9 / int(driving_parameter[1])
+
+    # There are two separate counters, create them now
+    counter = 0
+    counter2 = 0
+
+    # Iterate through all the ranges of data that will be separated (counter -> counter+step)
+    while counter < 9:
+        # Create a new dataset that contains the data in the range that we want
+        intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
+        imef_data = intermediate_step.where(total_data[driving_parameter[0]] > counter, drop=True)
+
+        # Rename the data variable to include the range in the name
+        imef_data = imef_data.rename({edi_name: edi_name + '_' + driving_parameter[0] + '_' + str(counter) + '_to_' + str(counter + step)})
+
+        # Add to the list of datasets
+        separated_data.append(imef_data)
+        counter += step
+
+    # Combine all the separated datasets into 1 dataset (Note this is so all the datasets have the same number of times, which prevents bugs in the binning phase)
+    test = xr.merge(separated_data)
+
+    # Add the new data to the data_to_bin object, with the required other data (variable name and coordinate dependence)
+    while counter2 < 9:
+        data_to_bin.append([test, edi_name + '_' + driving_parameter[0] + '_' + str(counter2) + '_to_' + str(counter2 + step), True])
+        counter2 += step
+
+    return data_to_bin
 
 
 def get_binned_statistics(data, mec_data, L_and_MLT):
@@ -124,10 +175,12 @@ def create_imef_data(data, L_and_MLT, count, polar):
         imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'polar': ['r', 'phi']})
 
         imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_GSE_polar_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
-                                           coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_GSE_polar_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
-                                          coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_GSE_polar_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)),
+                                                     dims=['iL', 'iMLT', 'polar'],
+                                                     coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_GSE_polar_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)),
+                                                    dims=['iL', 'iMLT', 'polar'],
+                                                    coords={'L': L2, 'MLT': MLT2})
     else:
         L2, MLT2 = xr.broadcast(L_and_MLT.L, L_and_MLT.MLT)
         L2 = L2.rename({'L': 'iL', 'MLT': 'iMLT'})
@@ -135,10 +188,12 @@ def create_imef_data(data, L_and_MLT, count, polar):
         imef_data = xr.Dataset(coords={'L': L2, 'MLT': MLT2, 'cartesian': ['x', 'y', 'z']})
 
         imef_data['count'] = xr.DataArray(count, dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_GSE_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
-                                           coords={'L': L2, 'MLT': MLT2})
-        imef_data['E_GSE_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
-                                          coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_GSE_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)),
+                                               dims=['iL', 'iMLT', 'cartesian'],
+                                               coords={'L': L2, 'MLT': MLT2})
+        imef_data['E_GSE_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)),
+                                              dims=['iL', 'iMLT', 'cartesian'],
+                                              coords={'L': L2, 'MLT': MLT2})
 
     # Each bin goes from x to x+dL, but the index associating those values only starts at the beginning of the bin, which is misleading
     # Change the index to be in the middle of the bin
@@ -147,9 +202,23 @@ def create_imef_data(data, L_and_MLT, count, polar):
 
     # If there are other data points that need to be binned, create those data values here
     for index in range(1, len(data)):
-        data_name=data[index][1]
-        imef_data[data_name+'_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT)), dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
-        imef_data[data_name+'_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT)), dims=['iL', 'iMLT'], coords={'L': L2, 'MLT': MLT2})
+        data_name = data[index][1]
+        if data[index][2] == False:
+            imef_data[data_name + '_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT)), dims=['iL', 'iMLT'],
+                                                          coords={'L': L2, 'MLT': MLT2})
+            imef_data[data_name + '_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT)), dims=['iL', 'iMLT'],
+                                                         coords={'L': L2, 'MLT': MLT2})
+        else:
+            if polar:
+                imef_data[data_name + '_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+                                                              coords={'L': L2, 'MLT': MLT2})
+                imef_data[data_name + '_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 2)), dims=['iL', 'iMLT', 'polar'],
+                                                             coords={'L': L2, 'MLT': MLT2})
+            else:
+                imef_data[data_name + '_mean'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+                                                            coords={'L': L2, 'MLT': MLT2})
+                imef_data[data_name + '_std'] = xr.DataArray(np.zeros((L_and_MLT.nL, L_and_MLT.nMLT, 3)), dims=['iL', 'iMLT', 'cartesian'],
+                                                             coords={'L': L2, 'MLT': MLT2})
 
     return imef_data
 
@@ -174,11 +243,11 @@ def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filena
         # Do not do anything if the bin is empty
         #   - equivalently: if imef_data['count'][ir,ic] == 0:
         bool_idx = binnum == ibin
-        if sum(bool_idx) == 0:
+        if sum(bool_idx) == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
             continue
 
-        imef_data[data_name+'_mean'].loc[ir, ic] = data[data_name][bool_idx].mean(dim='time')
-        imef_data[data_name+'_std'].loc[ir, ic] = data[data_name][bool_idx].std(dim='time')
+        imef_data[data_name + '_mean'].loc[ir, ic] = data[data_name][bool_idx].mean(dim='time')
+        imef_data[data_name + '_std'].loc[ir, ic] = data[data_name][bool_idx].std(dim='time')
 
     if created_file == True:
         # If the file already exists, average the new data with the existing data
@@ -192,24 +261,27 @@ def average_data(imef_data, data_name, filename):
     file_data = xr.open_dataset(filename)
 
     # Calculate weighted mean of incoming and existing data
-    average_mean = (imef_data['count'] * imef_data[data_name+'_mean'] + file_data['count'] * file_data[data_name+'_mean']) / (
-            imef_data['count'] + file_data['count'])
+    average_mean = (imef_data['count'] * imef_data[data_name + '_mean'] + file_data['count'] * file_data[
+        data_name + '_mean']) / (
+                           imef_data['count'] + file_data['count'])
 
     # For any bins that have 0 data points, the above divides by 0 and returns NaN. Change the NaN's to 0's
     average_mean = average_mean.fillna(0)
 
     # Calculate weighted standard deviation of incoming and existing data
-    average_std = np.sqrt((imef_data['count'] * (imef_data[data_name+'_std'] ** 2 + (imef_data[data_name+'_mean'] - average_mean) ** 2) +
-                   file_data['count'] * (file_data[data_name+'_std'] ** 2 + (file_data[data_name+'_mean'] - average_mean) ** 2)) / \
-                  (imef_data['count'] + file_data['count']))
+    average_std = np.sqrt((imef_data['count'] * (
+                imef_data[data_name + '_std'] ** 2 + (imef_data[data_name + '_mean'] - average_mean) ** 2) +
+                           file_data['count'] * (file_data[data_name + '_std'] ** 2 + (
+                        file_data[data_name + '_mean'] - average_mean) ** 2)) / \
+                          (imef_data['count'] + file_data['count']))
 
     average_std = average_std.fillna(0)
 
     # Place the newly found averages to imef_data.
     # This could also just be made into a new Dataset, but it's easier this way.
     imef_data['count'].values = file_data['count'].values + imef_data['count'].values
-    imef_data[data_name+'_mean'].values = average_mean.values
-    imef_data[data_name+'_std'].values = average_std.values
+    imef_data[data_name + '_mean'].values = average_mean.values
+    imef_data[data_name + '_std'].values = average_std.values
 
     file_data.close()
 
@@ -229,11 +301,13 @@ def main():
 
     parser.add_argument('level', type=str, help='Data level')
 
-    parser.add_argument('extra_data', type=str, help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
-                                                     'If no extra data points, put None. Options for extra data are: Kp. More may be added later')
+    parser.add_argument('extra_data', type=str,
+                        help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
+                             'If no extra data points, put None. Options for extra data are: Kp. More may be added later')
 
-    parser.add_argument('driving_parameter', type=str, help='Choose a driving parameter to separate the data by. Formatting: [driving_parameter,number_of_bins]'
-                                                            'ex: [Kp,3]. For no driving parameter, put [None]. Options for driving parameters are: Kp. More may be added later')
+    parser.add_argument('driving_parameter', type=str,
+                        help='Choose a driving parameter to separate the data by. Formatting: driving_parameter1:number_of_bins1'
+                             'ex: [Kp,3]. For no driving parameter, put None. Options for driving parameters are: Kp. More may be added later')
 
     parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
 
@@ -243,7 +317,9 @@ def main():
 
     parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
 
-    parser.add_argument('-e', '--exists', help='The output file already exists, merge the data across the new dates with the existing data', action='store_true')
+    parser.add_argument('-e', '--exists',
+                        help='The output file already exists, merge the data across the new dates with the existing data',
+                        action='store_true')
 
     # If the polar plot is updated to spherical, update this note (and maybe change -p to -s)
     parser.add_argument('-p', '--polar', help='Convert the electric field values to polar', action='store_true')
@@ -259,13 +335,21 @@ def main():
     t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
     t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
 
-    # Set up the extra data argument
+    # Set up extra data and driving parameter arguments
     if args.extra_data == 'None' or args.extra_data == 'none':
         extra_data = [None]
     else:
         extra_data = args.extra_data.split(",")
         if type(extra_data) == str:
             extra_data = [extra_data]
+
+    if args.driving_parameter == 'None' or args.driving_parameter == 'none':
+        driving_parameter = [None]
+    else:
+        driving_parameter = args.driving_parameter.split(":")
+
+    if driving_parameter[0] in extra_data and driving_parameter[0]!=None:
+        raise AttributeError("The same variable cannot be binned and used as a driving parameter at the same time")
 
     # The name of the file where the data will be stored
     filename = args.filename
@@ -339,7 +423,8 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data)
+            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
+                                                          L_and_MLT, ti, te, extra_data, driving_parameter)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
