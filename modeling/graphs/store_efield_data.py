@@ -70,9 +70,10 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
         # Remove the corotation electric field
         edi_data = remove_corot_efield(edi_data, mec_data, RE)
 
-        # A dictionary containing the keys for extra data that is available. As more options are created they will be added into here.
+        # A dictionary containing the keys for extra data that is available, and the maximum value that the index will measure
+        # As more options are created they will be added into here.
         # Note that if the arguments for different functions vary, this part will have to be edited to account for it (not sure how yet)
-        x = {'Kp': get_kp_data(ti, te, expand=edi_data['time'].values)}
+        x = {'Kp': [get_kp_data(ti, te, expand=edi_data['time'].values), 9]}
 
         # A 2D list that contains the data to be binned, along with the name that it will be given when binned.
 
@@ -98,9 +99,9 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
                 extra_data_values = extra_data_values.append(more_data)
                 data_to_bin.append([more_data, variable, False]) #NOTE THAT IT IS NOT ALWAYS FALSE. IF THERE IS ONE THAT IS TRUE THIS NEEDS TO BE ADJUSTED
 
-        # If there is a driving parameter, handle it
+        # If there is a driving parameter, handle it and get the newly separated data
         if driving_parameter[0] != None:
-            data_to_bin = handle_driving_parameter(driving_parameter, x, extra_data_values, edi_data, edi_name, data_to_bin)
+            data_to_bin = handle_driving_parameter(driving_parameter, x, extra_data_values, extra_data, edi_data, edi_name, data_to_bin)
     else:
         # There should be stuff in the file, so if there isn't don't do anything
         raise ValueError("Electric field data file is empty")
@@ -108,44 +109,52 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
     return mec_data, data_to_bin
 
 
-def handle_driving_parameter(driving_parameter, x, extra_data_values, edi_data, edi_name, data_to_bin):
-    # Download the driving parameter data
-    driving_param_data = x[driving_parameter[0]]
+def handle_driving_parameter(driving_parameter, x, extra_data_values, extra_data_name, edi_data, edi_name, data_to_bin):
+    # NOTE: I think that this works with both extra data and driving parameter being used at the same time, but I can't test it so not positive
 
-    # Create an empty list that will contain all the newly separated data
-    separated_data = []
+    # Download the driving parameter data
+    driving_param_data, max_value = x[driving_parameter[0]]
 
     # Create one xarray object with all the data that is going to be binned
     total_data = xr.merge(extra_data_values)
     total_data = xr.merge([total_data, driving_param_data, edi_data])
 
     # Determine the step that the while loop will use
-    step = 9 / int(driving_parameter[1])
+    step = max_value / int(driving_parameter[1])
 
-    # There are two separate counters, create them now
-    counter = 0
-    counter2 = 0
+    if extra_data_name[0]!=None:
+        all_names = extra_data_name.append(edi_name)
+    else:
+        all_names = [edi_name]
 
-    # Iterate through all the ranges of data that will be separated (counter -> counter+step)
-    while counter < 9:
-        # Create a new dataset that contains the data in the range that we want
-        intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
-        imef_data = intermediate_step.where(total_data[driving_parameter[0]] > counter, drop=True)
+    # Iterate through all the ranges of data that will be separated (counter -> counter+
+    for name in all_names:
+        # Create an empty list that will contain all the newly separated data
+        separated_data = []
 
-        # Rename the data variable to include the range in the name
-        imef_data = imef_data.rename({edi_name: edi_name + '_' + driving_parameter[0] + '_' + str(counter) + '_to_' + str(counter + step)})
+        # There are two separate counters, create (or reset) them now
+        counter = 0
+        counter2 = 0
 
-        # Add to the list of datasets
-        separated_data.append(imef_data)
-        counter += step
+        while counter < max_value:
+            # Create a new dataset that contains the data in the range that we want
+            intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
+            imef_data = intermediate_step.where(total_data[driving_parameter[0]] > counter, drop=True)
 
-    # Combine all the separated datasets into 1 dataset (Note this is so all the datasets have the same number of times, which prevents bugs in the binning phase)
-    test = xr.merge(separated_data)
+            # Rename the data variable to include the range in the name
+            imef_data = imef_data.rename({name: name + '_' + driving_parameter[0] + '_' + str(counter) + '_to_' + str(counter + step)})
 
-    # Add the new data to the data_to_bin object, with the required other data (variable name and coordinate dependence)
-    while counter2 < 9:
-        data_to_bin.append([test, edi_name + '_' + driving_parameter[0] + '_' + str(counter2) + '_to_' + str(counter2 + step), True])
-        counter2 += step
+            # Add to the list of datasets
+            separated_data.append(imef_data)
+            counter += step
+
+        # Combine all the separated datasets into 1 dataset (Note this is so all the datasets have the same number of times, which prevents bugs in the binning phase)
+        test = xr.merge(separated_data)
+
+        # Add the new data to the data_to_bin object, with the required other data (variable name and coordinate dependence)
+        while counter2 < max_value:
+            data_to_bin.append([test, name + '_' + driving_parameter[0] + '_' + str(counter2) + '_to_' + str(counter2 + step), True])
+            counter2 += step
 
     return data_to_bin
 
