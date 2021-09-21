@@ -16,7 +16,7 @@ def download_ftp_files(remote_location, local_location, fname_list):
         # Check if they exist
         if os.path.isfile(local_location + fname) == 0:
             # If they do not exist, create the new file and copy down the data
-            # Note that this will not update new data for most recent year. May want to figure that out at some point
+            # Note that this will not update existing files. May want to figure that out at some point
             with open(local_location + fname, 'wb') as f:
                 with closing(request.urlopen(remote_location + fname)) as r:
                     shutil.copyfileobj(r, f)

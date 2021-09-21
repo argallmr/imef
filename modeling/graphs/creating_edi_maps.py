@@ -17,7 +17,7 @@ def main():
     nMLT = 24
 
     # Plot Electric Field + Count Data
-    xrplot.plot_efield_polar(nL, nMLT, imef_data)
+    #xrplot.plot_efield_polar(nL, nMLT, imef_data)
 
     # Calculate Potential
     V = dm.calculate_potential(imef_data)
