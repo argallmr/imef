@@ -142,9 +142,17 @@ def handle_driving_parameter(driving_parameter, x, extra_data_values, extra_data
             intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
             imef_data = intermediate_step.where(total_data[driving_parameter[0]] > counter, drop=True)
 
+            # Need to get the corresponding mec data for our new imef data
+            if imef_data.time.size == 0:
+                # Create an empty mec_data dataset (no time will be less than the epoch)
+                new_mec_data = mec_data.where(mec_data.time < np.datetime64(0, 's'), drop=True)
+            else:
+                # Take the values that are in the imef_data
+                new_mec_data = mec_data.interp_like(imef_data)
+
             new_name = name + '_' + driving_parameter[0] + '_' + str(counter) + '_to_' + str(counter + step)
 
-            count, x_edge, y_edge, binnum = get_binned_statistics(imef_data, mec_data, L_and_MLT)
+            count, x_edge, y_edge, binnum = get_binned_statistics(imef_data, new_mec_data, L_and_MLT)
 
             imef_data[new_name+'_count'] = xr.DataArray(count, dims=['L', 'MLT'], coords={'L': L_and_MLT.L, 'MLT': L_and_MLT.MLT})
             # Just make a new list containing all of these, return, put into create_imef_data, and make there. Then should be good
