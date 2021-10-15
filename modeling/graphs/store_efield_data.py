@@ -6,7 +6,7 @@ from data_manipulation import rot2polar, cart2polar, remove_corot_efield, remove
 import argparse
 import plot_nc_data as xrplot
 from storage_objects import LandMLT
-from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data
+from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data, get_IEF
 
 # For debugging purposes
 # np.set_printoptions(threshold=np.inf)
@@ -74,6 +74,7 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
         # As more options are created they will be added into here.
         # Note that if the arguments for different functions vary, this part will have to be edited to account for it (not sure how yet)
         x = {'Kp': [get_kp_data(ti, te, expand=edi_data['time'].values), 9]}
+             # 'IEF': [get_IEF(fgm_data, ti, te, edi_data['time'].values), 100000]} # INSERT THE MAX VALUE FOR IEF. Also this calls all the functions inside when creating dict. Bad
 
         # A 2D list that contains the data to be binned, along with the name that it will be given when binned.
 

@@ -249,7 +249,7 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
     return des_data
 
 
-def get_kp_data(ti, te, expand=None):
+def get_kp_data(ti, te, expand=[None]):
     # Location of the files on the server
     remote_location = 'ftp://ftp.gfz-potsdam.de/pub/home/obs/Kp_ap_Ap_SN_F107/'
     # Location where the file will be places locally
@@ -278,6 +278,8 @@ def get_kp_data(ti, te, expand=None):
     # Select the data we actually want
     time, kp = dm.slice_data_by_time(full_kp_data, ti, te)
 
+    # When you are given certain times and want the associated Kp value, give the times in the expand variable,
+    # And expand_kp will give back a list of Kp values at the given times
     if expand[0] != None:
         kp = dm.expand_kp(time, kp, expand)
         time = expand
@@ -292,3 +294,32 @@ def get_kp_data(ti, te, expand=None):
     kp_data['Kp'] = xr.DataArray(kp, dims=['time'], coords={'time': time})
 
     return kp_data
+
+
+def get_IEF(fgm_data, ti, te, expand=[None]):
+    # Note that this only works correctly for one day of info. Maybe will generalize later but for now exactly 1 day
+    # Also note that the fgm data should be downloaded with the binned variable set to True
+
+    # VALUES ARE INCORRECT. FIGURE OUT WHY
+
+    omni_data = get_omni_data(ti, te)
+
+    # Find the magnitude of the velocity vector of the plasma at each point
+    V = np.array([])
+    for counter in range(len(omni_data['V_OMNI'].values)):
+        start = np.linalg.norm(omni_data['V_OMNI'][counter].values)
+        V = np.append(V, [start])
+
+    # Can't really verify that these are right. Just gotta hope I guess (especially w theta). I think it worked correctly
+    By = fgm_data['B_GSE'][:,1].values
+    Bz = fgm_data['B_GSE'][:,2].values
+    theta = np.arctan(By/Bz)
+
+    # IEF = V*sqrt(B_y^2 + B_z^2)sin^2(\theta / 2) -> V is the velocity of the plasma, should be in OMNI
+    # theta = tan^−1(B_Y/B_Z)
+    IEF_data = V*np.sqrt((By**2)+(Bz**2))*(np.sin(theta/2)**2)
+
+    if expand[0] != None:
+        IEF_data = dm.expand_kp(omni_data['time'], IEF_data, expand)
+
+    return IEF_data

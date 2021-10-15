@@ -423,8 +423,8 @@ def calculate_potential(imef_data):
     nMLT = 24
 
     # Get the electric field data and make them into vectors
-    E_r = imef_data['E_mean'][:, :, 0].values.flatten()
-    E_az = imef_data['E_mean'][:, :, 1].values.flatten()
+    E_r = imef_data['E_GSE_mean'][:, :, 0].values.flatten()
+    E_az = imef_data['E_GSE_mean'][:, :, 1].values.flatten()
 
     # Create the number of elements that the potential will have
     nElements = 24 * int(max_Lvalue - min_Lvalue + 1)
