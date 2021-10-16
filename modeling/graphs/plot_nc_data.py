@@ -27,7 +27,7 @@ def plot_efield_cartesian(nL, nMLT, imef_data):
     # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
     # May need to be changed when more data points are present
     ax1 = axes[0, 0]
-    ax1.quiver(phi, r, Ex, Ey, scale=10)
+    ax1.quiver(phi, r, Ex, Ey, scale=2)
     ax1.set_xlabel("Electric Field")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
 
@@ -37,7 +37,7 @@ def plot_efield_cartesian(nL, nMLT, imef_data):
     # Plot the number of data points in each bin
     ax2 = axes[0, 1]
     ax2.set_xlabel("Count")
-    im = ax2.pcolormesh(phi, r, imef_data['count'].data, cmap='YlOrRd', shading='auto')
+    im = ax2.pcolormesh(phi, r, imef_data['E_GSE_count'].data, cmap='YlOrRd', shading='auto')
     fig.colorbar(im, ax=ax2)
 
     plt.show()
@@ -48,8 +48,8 @@ def plot_efield_polar(nL, nMLT, imef_data):  # Update this to spherical if neede
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Er = imef_data['E_GSE_polar_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
-    Ephi = imef_data['E_GSE_polar_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
+    Er = imef_data['E_GSE_polar_Kp_0_to_1.0_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
+    Ephi = imef_data['E_GSE_polar_Kp_0_to_1.0_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
     # Convert to cartesian coordinates
     # Scaling the vectors doesn't work correctly unless this is done.
@@ -63,7 +63,7 @@ def plot_efield_polar(nL, nMLT, imef_data):  # Update this to spherical if neede
     # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
     # May need to be changed when more data points are present
     ax1 = axes[0, 0]
-    ax1.quiver(phi, r, Ex, Ey, scale=10)
+    ax1.quiver(phi, r, Ex, Ey, scale=2)
     ax1.set_xlabel("Electric Field")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax1.set_theta_direction(1)
@@ -91,7 +91,7 @@ def plot_potential(nL, nMLT, imef_data, V_data):
 
     # The plot comes out missing a section since the coordinates do not completely go around the circle.
     # So we have to copy/paste the first plot point to the end of each of the lists so that the plot is complete
-    for counter in range (7):
+    for counter in range(nL):
         add_to_r = np.append(r[counter], r[counter][0])
         add_to_phi = np.append(phi[0], extra_phi_value)
         add_to_V_data = np.append(V_data[counter], V_data[counter][0])

@@ -422,6 +422,11 @@ def main():
         # Assign the start time
         ti = t0
 
+        if ti==dt.datetime(2016,9,16):
+            print("Skip 9/16/16. Unknown Error Here")
+            t0 = ti + dt.timedelta(days=1) - timediff
+            continue
+
         # Determine the time difference between ti and midnight. Only will be a non-1 microsecond number on the first run through the loop
         # (Though it will not always be different on the first run)
         timediff = dt.datetime.combine(dt.date.min, ti.time()) - dt.datetime.min

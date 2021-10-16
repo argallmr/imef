@@ -4,11 +4,12 @@ import data_manipulation as dm
 
 def main():
     # Open Data
-    imef_data = xr.open_dataset('6years_store_efield_data.nc')
+    imef_data = xr.open_dataset('6_years_Kp3.nc')
+    # imef_data = xr.open_dataset('6years_store_efield_data.nc')
 
     # Select Desired Range of Data
-    newtest = imef_data.where(imef_data.iL < 11, drop=True)
-    imef_data = newtest.where(newtest.iL > 3, drop=True)
+    # newtest = imef_data.where(imef_data.iL < 11, drop=True)
+    # imef_data = newtest.where(newtest.iL > 3, drop=True)
 
     # Find the range of L values used, so we can plot over the proper range of values
     min_Lvalue = imef_data['L'][0, 0].values
