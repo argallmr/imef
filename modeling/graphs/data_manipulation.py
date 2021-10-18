@@ -132,7 +132,13 @@ def expand_kp(kp_times, kp, time_to_expand_to):
     # Iterate through all times and convert them to datetime64 objects
     for time in kp_times:
         # The timedelta is done because the min function used later favors the lower value when a tie is found. We want the upper value to be favored, so we have to change the time a little
-        time64 = np.datetime64(time-dt.timedelta(microseconds=1))
+        if type(time)==type(dt.datetime(2015,9,10)):
+            time64 = np.datetime64(time-dt.timedelta(microseconds=1))
+        elif type(time)==type(np.datetime64(1,'Y')):
+            time64 = time-np.timedelta64(1,'ms') # This thing only works for 1 millisecond, not 1 microsecond. Very sad
+        else:
+            raise TypeError('Time array must contain either datetime or datetime64 objects')
+
         if time == kp_times[0]:
             datetime64_kp_times = np.array([time64])
         else:
@@ -359,7 +365,7 @@ def get_A_col(L, MLT=0, other=0):
 
 
 def get_C(min_Lvalue, max_Lvalue):
-    # C is the laplacian, or the second derivative matrix. It is used to smooth the E=AΦ relation when solving the inverse problem
+    # C is the hessian, or the second derivative matrix. It is used to smooth the E=AΦ relation when solving the inverse problem
     # The overall procedure used to find A is used again here (reverse engineering the values of A), however there are more values per row
     # Also, the central difference operator is not used here, so there are no halving of values
     # For the example y=Cx: y(L=6, MLT=12) = x(L=5, 12 MLT)+x(L=7, 12 MLT)+x(L=6, 11 MLT)+x(L=6, 13 MLT)-4*x(L=6, 12 MLT)
@@ -368,7 +374,7 @@ def get_C(min_Lvalue, max_Lvalue):
     # The L edge cases are handled by **ignoring the lower values apparently**
     # For example, if L=4 was the lowest L value measured, then y=x(L=5, 0 MLT)+x(L=4, 23 MLT)+x(L=4, 1 MLT)-4*x(L=4, 0 MLT)
 
-    # But, because C is a square matrix, we can use a different, much easier method to create this matrix
+    # But, because C is a square matrix, we can use a different, much easier method to create this matrix than we did with A
     # From the above example, we know that every value down the diagonal is -4. So we can use np.diag(np.ones(dimension)) to make a square matrix with ones across the diagonal and 0 elsewhere
     # Multiplying that by -4 gives us all the -4 values we want.
     # We can use the same method to create a line of ones one above the diagonal by using np.diag(np.ones(dimension-1), 1)

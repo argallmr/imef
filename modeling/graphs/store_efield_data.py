@@ -72,9 +72,9 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
 
         # A dictionary containing the keys for extra data that is available, and the maximum value that the index will measure
         # As more options are created they will be added into here.
-        # Note that if the arguments for different functions vary, this part will have to be edited to account for it (not sure how yet)
-        x = {'Kp': [get_kp_data(ti, te, expand=edi_data['time'].values), 9]}
-             # 'IEF': [get_IEF(fgm_data, ti, te, edi_data['time'].values), 100000]} # INSERT THE MAX VALUE FOR IEF. Also this calls all the functions inside when creating dict. Bad
+        # This calls all the functions inside when creating dict. Bad. Also not 100% on the max IEF value. It kinda corresponds to Matsui but not
+        x = {'Kp': [get_kp_data(ti, te, edi_data['time'].values), 9],
+             'IEF': [get_IEF(ti, te, edi_data['time'].values), 3]}
 
         # A 2D list that contains the data to be binned, along with the name that it will be given when binned.
 
@@ -276,7 +276,7 @@ def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filena
         # Do not do anything if the bin is empty
         #   - equivalently: if imef_data['count'][ir,ic] == 0:
         bool_idx = binnum == ibin
-        if sum(bool_idx) == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
+        if sum(bool_idx) == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True: # Theres an error here. I don't know why
             continue
 
         imef_data[data_name + '_mean'].loc[ir, ic] = data[data_name][bool_idx].mean(dim='time')
@@ -335,11 +335,11 @@ def main():
 
     parser.add_argument('extra_data', type=str,
                         help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
-                             'If no extra data points, put None. Options for extra data are: Kp. More may be added later')
+                             'If no extra data points, put None. Options for extra data are: Kp, IEF. More may be added later')
 
     parser.add_argument('driving_parameter', type=str,
                         help='Choose a driving parameter to separate the data by. Formatting: driving_parameter1:number_of_bins1'
-                             'ex: [Kp,3]. For no driving parameter, put None. Options for driving parameters are: Kp. More may be added later')
+                             'ex: [Kp,3]. For no driving parameter, put None. Options for driving parameters are: Kp, IEF. More may be added later')
 
     parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
 
@@ -422,11 +422,6 @@ def main():
         # Assign the start time
         ti = t0
 
-        if ti==dt.datetime(2016,9,16):
-            print("Skip 9/16/16. Unknown Error Here")
-            t0 = ti + dt.timedelta(days=1) - timediff
-            continue
-
         # Determine the time difference between ti and midnight. Only will be a non-1 microsecond number on the first run through the loop
         # (Though it will not always be different on the first run)
         timediff = dt.datetime.combine(dt.date.min, ti.time()) - dt.datetime.min
@@ -460,8 +455,17 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
+            # The try/catch is a workaround for an error appearing when binning with a driving parameter on certain days.
+            # Kp & 9/16/16 is an example. I don't know why it happens so I have to do this
             imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
                                                           L_and_MLT, ti, te, extra_data, driving_parameter)
+            # try:
+            #     imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
+            #                                               L_and_MLT, ti, te, extra_data, driving_parameter)
+            # except IndexError as indexexception:
+            #     print('That weird error came up, I think:', indexexception)
+            # except Exception as exception:
+            #     raise exception
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff

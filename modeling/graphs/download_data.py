@@ -296,11 +296,9 @@ def get_kp_data(ti, te, expand=[None]):
     return kp_data
 
 
-def get_IEF(fgm_data, ti, te, expand=[None]):
+def get_IEF(ti, te, expand=[None]):
     # Note that this only works correctly for one day of info. Maybe will generalize later but for now exactly 1 day
     # Also note that the fgm data should be downloaded with the binned variable set to True
-
-    # VALUES ARE INCORRECT. FIGURE OUT WHY
 
     omni_data = get_omni_data(ti, te)
 
@@ -311,15 +309,27 @@ def get_IEF(fgm_data, ti, te, expand=[None]):
         V = np.append(V, [start])
 
     # Can't really verify that these are right. Just gotta hope I guess (especially w theta). I think it worked correctly
-    By = fgm_data['B_GSE'][:,1].values
-    Bz = fgm_data['B_GSE'][:,2].values
+    By = omni_data['B_OMNI'][:,1].values
+    Bz = omni_data['B_OMNI'][:,2].values
     theta = np.arctan(By/Bz)
 
     # IEF = V*sqrt(B_y^2 + B_z^2)sin^2(\theta / 2) -> V is the velocity of the plasma, should be in OMNI
     # theta = tan^−1(B_Y/B_Z)
-    IEF_data = V*np.sqrt((By**2)+(Bz**2))*(np.sin(theta/2)**2)
+    # The /1000 is from dimensional analysis, to keep units in mV/m
+    IEF = V*np.sqrt((By**2)+(Bz**2))*(np.sin(theta/2)**2) / 1000
 
     if expand[0] != None:
-        IEF_data = dm.expand_kp(omni_data['time'], IEF_data, expand)
+        IEF = dm.expand_kp(omni_data['time'].values, IEF.astype('str'), expand)
+        time=expand
+    else:
+        time=omni_data['time'].values
+
+    IEF = IEF.astype('float64')
+
+    # Create an empty dataset at the time values that we made above
+    IEF_data = xr.Dataset(coords={'time': time})
+
+    # Put the data into the dataset
+    IEF_data['IEF'] = xr.DataArray(IEF, dims=['time'], coords={'time': time})
 
     return IEF_data

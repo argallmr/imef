@@ -7,6 +7,8 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     # This whole function is written weird, its half generalized and half not.
     # It only works for bin values of 3 in data1 and 9 in data2, but that is all that we need for now, so I'm gonna leave it
 
+    # This program needs a lot of gloss. It looks horrendous and needs to be rewritten so that it is actually readable.
+
     # Setting up constant values based on values in the datasets
     nbins = int(nbins)
     nbins2 = int(nbins2)
@@ -55,15 +57,18 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
 
     # For the counts
     fig_counts, axes_counts = plt.subplots(nrows=1, ncols=nbins, squeeze=False, subplot_kw=dict(projection='polar'))
+    plt.suptitle('Data points versus Location Around Earth')
     fig_counts.tight_layout()
 
     counter_counts = 0
 
-    for plot_number in range(nbins):
+    counts_titles = ['Kp: [0,3)', 'Kp: [3,6)', 'Kp: [6,9]']
+
+    for plot_number in range(nbins): #LOG10 COUNTS.
         ax2 = axes_counts[0, plot_number]
+        ax2.set_title(counts_titles[plot_number])
         count_data = data['E_GSE_Kp_' + str(counter_counts) + '_to_' + str(counter_counts + step) + '_count']
-        im = ax2.pcolormesh(phi, r, count_data, cmap='OrRd', shading='auto',
-                            vmax='1200')  # These values may need to be changed
+        im = ax2.pcolormesh(phi, r, np.log10(count_data), cmap='OrRd', shading='auto', vmax=5)  # This values may need to be changed
 
         counter_counts += step
     fig_counts.colorbar(im, ax=axes_counts.ravel().tolist())
@@ -78,6 +83,7 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     labels = ['[0,1)', '[1,2)', '[2,3)', '[3,4)', '[4,5)', '[5,6)', '[6,7)', '[7,9]']
     axes = [['L', 'Ex (GSE)'], ['L', 'Ey (GSE)'], ['L', 'Ez (GSE)']]
 
+    # The line plot for just Efield vs L
     # THIS DEFINITELY DOESNT WORK FOR OTHER BIN AMOUNTS. Kp_value does not correspond to counter & stuff. MAYBE OR MAYBE NOT FIX
     for component in range(3):
         counter2 = 0
@@ -87,20 +93,23 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
         ax2.set_ylabel(axes[component][1])
         for Kp_value in range(8):
             list = []
-            string = 'E_GSE_Kp_' + str(counter2) + '_to_' + str(counter2 + step2) + '_mean'
+            string = 'E_GSE_Kp_' + str(counter2) + '_to_' + str(counter2 + step2)
             if Kp_value == 7:
-                string2 = 'E_GSE_Kp_' + str(counter2 + step2) + '_to_' + str(counter2 + 2 * step2) + '_mean'
+                string2 = 'E_GSE_Kp_' + str(counter2 + step2) + '_to_' + str(counter2 + 2 * step2)
                 for counter3 in range(nL):
-                    # print((data2[string][counter3, :, component].values+data2[string2][counter3, :, component].values).mean())
-                    list.append((data2[string][counter3, :, component].values + data2[string2][counter3, :,
-                                                                                component].values).mean())
-                    ax2.plot(data['iL'].values[counter3] + 4.5, data2[string][counter3, :, component].values.mean(),
+                    list.append(weighted_average(
+                        data2[string + '_mean'][counter3, :, component].values + data2[string2 + '_mean'][counter3, :, component].values,
+                        data2[string + '_count'][counter3, :].values + data2[string2 + '_count'][counter3, :].values))
+                    ax2.plot(data['iL'].values[counter3] + 4.5, weighted_average(
+                        data2[string + '_mean'][counter3, :, component].values + data2[string2 + '_mean'][counter3, :, component].values,
+                        data2[string + '_count'][counter3, :].values + data2[string2 + '_count'][counter3, :].values),
                              color=colors[Kp_value], marker="o", markersize=3)
                 ax2.plot(data['iL'].values + 4.5, list, color=colors[Kp_value], label=labels[Kp_value])
             else:
                 for counter3 in range(nL):
-                    list.append(data2[string][counter3, :, component].values.mean())
-                    ax2.plot(data['iL'].values[counter3] + 4.5, data2[string][counter3, :, component].values.mean(),
+                    list.append(weighted_average(data2[string+'_mean'][counter3, :, component].values, data2[string+'_count'][counter3, :].values))
+                    ax2.plot(data['iL'].values[counter3] + 4.5,
+                             weighted_average(data2[string+'_mean'][counter3, :, component].values, data2[string+'_count'][counter3, :].values),
                              color=colors[Kp_value], marker="o", markersize=3)
                 ax2.plot(data['iL'].values + 4.5, list, color=colors[Kp_value], label=labels[Kp_value])
             counter2 += step2
@@ -110,6 +119,9 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     fig2_counts, axes2_counts = plt.subplots(nrows=3, ncols=3, squeeze=False)
     plt.suptitle('Number of Data Points in Each L Range')
     counter2_counts = 0
+
+    # This is fucked. I think its cause something isn't getting reset where it should be.
+    # However I don't think that this is something I actually need to fix, since I will be using the other counts plot
     for Kp_value_counts in range(8):
         list = []
         row=int(Kp_value_counts / 3)
@@ -118,7 +130,10 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
         string = 'E_GSE_Kp_' + str(counter2_counts) + '_to_' + str(counter2_counts + step2) + '_count'
         if Kp_value_counts == 7:
             string2 = 'E_GSE_Kp_' + str(counter2_counts + step2) + '_to_' + str(counter2_counts + 2 * step2) + '_count'
-            # IMPLEMENT
+            for counter3_counts in range(nL):
+                list.append(((data2[string][counter3_counts]+data2[string2][counter3_counts]).sum()))
+            ax2_counts.bar(data['iL'].values + 4.5, list)
+            ax2_counts.set_title(labels[Kp_value_counts])
         else:
             for counter3_counts in range(nL):
                 list.append(((data2[string][counter3_counts]).sum()))
@@ -126,6 +141,16 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
             ax2_counts.set_title(labels[Kp_value_counts])
 
     plt.show()
+
+
+def weighted_average(data, data_counts):
+    total = sum(data * data_counts)
+    total_counts = sum(data_counts)
+    # Idk what else to do when I have 0 counts. If this isn't done then we get nan and no line printed
+    if total_counts == 0:
+        return 0
+    else:
+        return total/total_counts
 
 
 def main():
