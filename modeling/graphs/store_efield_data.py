@@ -43,11 +43,12 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
 
     imef_data = xr.merge(all_binned_data)
 
+    # Export the data to a file with the name given by the user
     imef_data.to_netcdf(filename)
 
     # If this is the first run, let the program know that the file has been created
     # This is done so that any existing file with the same name as filename is overwritten,
-    # and the new data is not averaged into any existing data from previous runs
+    # and the new data is not averaged into any existing data from previous runs (assuming the user did not want this to happen)
     created_file = True
 
     return imef_data, created_file
@@ -102,7 +103,7 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
 
         # If there is a driving parameter, handle it and get the newly separated data
         if driving_parameter[0] != None:
-            data_to_bin= handle_driving_parameter(driving_parameter, x, extra_data_values, extra_data, edi_data, edi_name, mec_data, data_to_bin, L_and_MLT)
+            data_to_bin=handle_driving_parameter(driving_parameter, x, extra_data_values, extra_data, edi_data, edi_name, mec_data, data_to_bin, L_and_MLT)
     else:
         # There should be stuff in the file, so if there isn't don't do anything
         raise ValueError("Electric field data file is empty")
@@ -140,8 +141,12 @@ def handle_driving_parameter(driving_parameter, x, extra_data_values, extra_data
 
         while counter < max_value:
             # Create a new dataset that contains the data in the range that we want
-            intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
-            imef_data = intermediate_step.where(total_data[driving_parameter[0]] > counter, drop=True)
+            if counter==0:
+                intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
+                imef_data = intermediate_step.where(total_data[driving_parameter[0]] >= counter, drop=True)
+            else:
+                intermediate_step = total_data.where(total_data[driving_parameter[0]] <= counter + step, drop=True)
+                imef_data = intermediate_step.where(total_data[driving_parameter[0]] > counter, drop=True)
 
             # Need to get the corresponding mec data for our new imef data
             if imef_data.time.size == 0:
@@ -274,9 +279,10 @@ def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filena
         ib = ic + ir * (L_and_MLT.nMLT + 2)  # flattened data index
 
         # Do not do anything if the bin is empty
-        #   - equivalently: if imef_data['count'][ir,ic] == 0:
         bool_idx = binnum == ibin
-        if sum(bool_idx) == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True: # Theres an error here. I don't know why
+        # if imef_data['E_GSE_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0]) == True:  # Theres an error here. I don't know why
+        #     continue
+        if imef_data['E_GSE_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
             continue
 
         imef_data[data_name + '_mean'].loc[ir, ic] = data[data_name][bool_idx].mean(dim='time')
@@ -345,7 +351,7 @@ def main():
 
     parser.add_argument('end_date', type=str, help='End date of the data interval: ''"YYYY-MM-DDTHH:MM:SS""')
 
-    parser.add_argument('filename', type=str, help='Output file name')
+    parser.add_argument('filename', type=str, help='Output file name. Include .nc at the end of the desired file name')
 
     parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
 
@@ -455,17 +461,8 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            # The try/catch is a workaround for an error appearing when binning with a driving parameter on certain days.
-            # Kp & 9/16/16 is an example. I don't know why it happens so I have to do this
             imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
                                                           L_and_MLT, ti, te, extra_data, driving_parameter)
-            # try:
-            #     imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
-            #                                               L_and_MLT, ti, te, extra_data, driving_parameter)
-            # except IndexError as indexexception:
-            #     print('That weird error came up, I think:', indexexception)
-            # except Exception as exception:
-            #     raise exception
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
