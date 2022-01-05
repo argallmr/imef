@@ -17,9 +17,17 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     nL = int(max_Lvalue - min_Lvalue + 1)
     nMLT = 24
 
+    if mode == 'cartesian':
+        rounds=3
+    else:
+        rounds=2
+
     # Setting up plots for the electric field binned by Kp
-    fig, axes = plt.subplots(nrows=nbins, ncols=3, squeeze=False, subplot_kw=dict(projection='polar'))
+    fig, axes = plt.subplots(nrows=nbins, ncols=rounds, squeeze=False, subplot_kw=dict(projection='polar'))
     fig.tight_layout()
+
+    fig_again, axes_again = plt.subplots(nrows=3, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
+    fig_again.tight_layout()
 
     # Instantiating counter value and setting up the size of each bin
     counter = 0
@@ -29,31 +37,40 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     phi = (2 * np.pi * data['MLT'].values / 24).reshape(nL, nMLT)
     r = data['L'].values.reshape(nL, nMLT)
 
+
     # Plotting electric field vs Kp
     for row in range(nbins):
-        for col in range(3):
-            ax = axes[col, row]
+        for col in range(rounds):
+            ax = axes[row, col]
             if mode == 'polar':  # Doesnt work for polar, since it goes 3 times but only 2 coords
                 list = ['r', 'phi']
                 string = 'E_GSE_polar_Kp_' + str(counter) + '_to_' + str(counter + step) + '_mean'
-                im = ax.pcolormesh(phi, r, data[string].loc[:, :, list[col]], cmap='seismic')
+                im = ax.pcolormesh(phi, r, data[string].loc[:, :, list[col]], cmap='seismic', vmin=-2, vmax=2)
+                print(string)
                 new_string = string[9:-5].split('_')
                 if row == 2:
-                    ax.set_title('E' + list[col] + ' Kp: [' + new_string[0] + ',' + new_string[2] + ']')
+                    ax.set_title('E' + list[col] + ' Kp: [' + new_string[2] + ',' + new_string[4] + ']')
                 else:
-                    ax.set_title('E' + list[col] + ' Kp: [' + new_string[0] + ',' + new_string[2] + ')')
+                    ax.set_title('E' + list[col] + ' Kp: [' + new_string[2] + ',' + new_string[4] + ')')
             else:
                 list = ['x', 'y', 'z']
                 string = 'E_GSE_Kp_' + str(counter) + '_to_' + str(counter + step) + '_mean'
-                im = ax.pcolormesh(phi, r, data[string].loc[:, :, list[col]], cmap='seismic', shading='auto', vmin=-.5,
-                                   vmax=.5)  # These values may need to be changed
+                im = ax.pcolormesh(phi, r, data[string].loc[:, :, list[col]], cmap='seismic', shading='auto', vmin=-2,
+                                   vmax=2)  # These values may need to be changed
                 new_string = string[9:-5].split('_')
                 if row == 2:
                     ax.set_title('E' + list[col] + ' Kp: [' + new_string[0] + ',' + new_string[2] + ']')
                 else:
                     ax.set_title('E' + list[col] + ' Kp: [' + new_string[0] + ',' + new_string[2] + ')')
+
+                if row==0:
+                    axes_again[col][0].pcolormesh(phi, r, data['E_GSE_mean'].loc[:, :, list[col]], cmap='seismic', shading='auto', vmin=-2,
+                                  vmax=2)
+                    axes_again[col][0].set_title('E'+list[col]+' For All Kp')
         counter += step
     fig.colorbar(im, ax=axes.ravel().tolist())
+
+    fig.savefig('testing.pdf', format='pdf')
 
     # For the counts
     fig_counts, axes_counts = plt.subplots(nrows=1, ncols=nbins, squeeze=False, subplot_kw=dict(projection='polar'))
@@ -63,19 +80,26 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     counter_counts = 0
 
     counts_titles = ['Kp: [0,3)', 'Kp: [3,6)', 'Kp: [6,9]']
-
-    for plot_number in range(nbins): #LOG10 COUNTS.
-        ax2 = axes_counts[0, plot_number]
-        ax2.set_title(counts_titles[plot_number])
-        count_data = data['E_GSE_Kp_' + str(counter_counts) + '_to_' + str(counter_counts + step) + '_count']
-        im = ax2.pcolormesh(phi, r, np.log10(count_data), cmap='OrRd', shading='auto', vmax=5)  # This values may need to be changed
-
-        counter_counts += step
+    if mode=='polar':
+        for plot_number in range(nbins): #LOG10 COUNTS.
+            ax2 = axes_counts[0, plot_number]
+            ax2.set_title(counts_titles[plot_number])
+            count_data = data['E_GSE_polar_Kp_' + str(counter_counts) + '_to_' + str(counter_counts + step) + '_count']
+            im = ax2.pcolormesh(phi, r, np.log10(count_data), cmap='OrRd', shading='auto', vmax=5)  # This values may need to be changed
+            counter_counts += step
+    else:
+        for plot_number in range(nbins): #LOG10 COUNTS.
+            ax2 = axes_counts[0, plot_number]
+            ax2.set_title(counts_titles[plot_number])
+            count_data = data['E_GSE_Kp_' + str(counter_counts) + '_to_' + str(counter_counts + step) + '_count']
+            im = ax2.pcolormesh(phi, r, np.log10(count_data), cmap='OrRd', shading='auto', vmax=5)  # This values may need to be changed
+            counter_counts += step
     fig_counts.colorbar(im, ax=axes_counts.ravel().tolist())
 
     # Now the line plot
-    fig2, axes2 = plt.subplots(nrows=1, ncols=3, squeeze=False)
-    plt.suptitle('Electric Field vs Distance from Earth')
+    fig2, axes2 = plt.subplots(nrows=1, ncols=rounds, squeeze=False)
+    fig2.tight_layout()
+    # plt.suptitle('Electric Field vs Distance from Earth')
     # print(data2['E_GSE_mean'])
     # string = 'E_GSE_Kp_1.0_to_2.0_mean'
 
@@ -85,17 +109,23 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
 
     # The line plot for just Efield vs L
     # THIS DEFINITELY DOESNT WORK FOR OTHER BIN AMOUNTS. Kp_value does not correspond to counter & stuff. MAYBE OR MAYBE NOT FIX
-    for component in range(3):
+    for component in range(rounds):
         counter2 = 0
         ax2 = axes2[0, component]
         ax2.set_xlim([min_Lvalue, max_Lvalue])
         ax2.set_xlabel(axes[component][0])
         ax2.set_ylabel(axes[component][1])
-        for Kp_value in range(8):
+        for Kp_value in range(6):
             list = []
-            string = 'E_GSE_Kp_' + str(counter2) + '_to_' + str(counter2 + step2)
+            if mode=='polar':
+                string = 'E_GSE_polar_Kp_' + str(counter2) + '_to_' + str(counter2 + step2)
+            else:
+                string = 'E_GSE_Kp_' + str(counter2) + '_to_' + str(counter2 + step2)
             if Kp_value == 7:
-                string2 = 'E_GSE_Kp_' + str(counter2 + step2) + '_to_' + str(counter2 + 2 * step2)
+                if mode=='polar':
+                    string2 = 'E_GSE_polar_Kp_' + str(counter2 + step2) + '_to_' + str(counter2 + 2 * step2)
+                else:
+                    string2 = 'E_GSE_Kp_' + str(counter2 + step2) + '_to_' + str(counter2 + 2 * step2)
                 for counter3 in range(nL):
                     list.append(weighted_average(
                         data2[string + '_mean'][counter3, :, component].values + data2[string2 + '_mean'][counter3, :, component].values,
@@ -116,31 +146,31 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
         if component == 0:
             fig2.legend(title="Kp Index")
 
+    plt.show()
+
     fig2_counts, axes2_counts = plt.subplots(nrows=3, ncols=3, squeeze=False)
     plt.suptitle('Number of Data Points in Each L Range')
     counter2_counts = 0
 
     # This is fucked. I think its cause something isn't getting reset where it should be.
     # However I don't think that this is something I actually need to fix, since I will be using the other counts plot
-    for Kp_value_counts in range(8):
-        list = []
-        row=int(Kp_value_counts / 3)
-        column = Kp_value_counts % 3
-        ax2_counts = axes2_counts[row][column]
-        string = 'E_GSE_Kp_' + str(counter2_counts) + '_to_' + str(counter2_counts + step2) + '_count'
-        if Kp_value_counts == 7:
-            string2 = 'E_GSE_Kp_' + str(counter2_counts + step2) + '_to_' + str(counter2_counts + 2 * step2) + '_count'
-            for counter3_counts in range(nL):
-                list.append(((data2[string][counter3_counts]+data2[string2][counter3_counts]).sum()))
-            ax2_counts.bar(data['iL'].values + 4.5, list)
-            ax2_counts.set_title(labels[Kp_value_counts])
-        else:
-            for counter3_counts in range(nL):
-                list.append(((data2[string][counter3_counts]).sum()))
-            ax2_counts.bar(data['iL'].values + 4.5, list)
-            ax2_counts.set_title(labels[Kp_value_counts])
-
-    plt.show()
+    # for Kp_value_counts in range(8):
+    #     list = []
+    #     row=int(Kp_value_counts / 3)
+    #     column = Kp_value_counts % 3
+    #     ax2_counts = axes2_counts[row][column]
+    #     string = 'E_GSE_Kp_' + str(counter2_counts) + '_to_' + str(counter2_counts + step2) + '_count'
+    #     if Kp_value_counts == 7:
+    #         string2 = 'E_GSE_Kp_' + str(counter2_counts + step2) + '_to_' + str(counter2_counts + 2 * step2) + '_count'
+    #         for counter3_counts in range(nL):
+    #             list.append(((data2[string][counter3_counts]+data2[string2][counter3_counts]).sum()))
+    #         ax2_counts.bar(data['iL'].values + 4.5, list)
+    #         ax2_counts.set_title(labels[Kp_value_counts])
+    #     else:
+    #         for counter3_counts in range(nL):
+    #             list.append(((data2[string][counter3_counts]).sum()))
+    #         ax2_counts.bar(data['iL'].values + 4.5, list)
+    #         ax2_counts.set_title(labels[Kp_value_counts])
 
 
 def weighted_average(data, data_counts):

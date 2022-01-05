@@ -24,11 +24,11 @@ def main():
         description='Download lots of data, and store the data into a netCDF (.nc) file'
     )
 
-    parser.add_argument('sc', type=str, help='Spacecraft Identifier')
+    parser.add_argument('sc', type=str, help='Spacecraft Identifier. Eg:MMS1')
 
-    parser.add_argument('mode', type=str, help='Data rate mode')
+    parser.add_argument('mode', type=str, help='Data rate mode. Eg:srvy')
 
-    parser.add_argument('level', type=str, help='Data level')
+    parser.add_argument('level', type=str, help='Data level. Eg:l2')
 
     parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
 

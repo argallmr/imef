@@ -327,11 +327,11 @@ def main():
                     'and store the data into a netCDF (.nc) file'
     )
 
-    parser.add_argument('sc', type=str, help='Spacecraft Identifier')
+    parser.add_argument('sc', type=str, help='Spacecraft Identifier. Eg:MMS1')
 
-    parser.add_argument('mode', type=str, help='Data rate mode')
+    parser.add_argument('mode', type=str, help='Data rate mode. Eg:srvy')
 
-    parser.add_argument('level', type=str, help='Data level')
+    parser.add_argument('level', type=str, help='Data level. Eg:l2')
 
     parser.add_argument('extra_data', type=str,
                         help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
@@ -354,7 +354,7 @@ def main():
                         action='store_true')
 
     # If the polar plot is updated to spherical, update this note (and maybe change -p to -s)
-    parser.add_argument('-p', '--polar', help='Convert the electric field values to polar', action='store_true')
+    parser.add_argument('-p', '--polar', help='Convert the electric field values to polar (default is cartesian)', action='store_true')
 
     args = parser.parse_args()
 

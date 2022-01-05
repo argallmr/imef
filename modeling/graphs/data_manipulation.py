@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 import datetime as dt
+import scipy.optimize as optimize
 from scipy.stats import binned_statistic
 
 # For debugging purposes
@@ -37,7 +38,7 @@ def rot2polar(vec, pos, dim):
 
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # E = v x B, 1e-3 converts units to mV/m
-    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_GSE'][:, :3])
+    E_sc = -1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_GSE'][:, :3])
 
     # Make into a DataArray to subtract the data easier
     E_sc = xr.DataArray(E_sc,
@@ -296,10 +297,10 @@ def get_A(min_Lvalue, max_Lvalue):
     # First we need to make the gradient operator. Since we have electric field data in bins labeled as 4.5, 5.5, ... and want potential values at integer values 1,2,...
     # We use the central difference operator to get potential values at integer values.
 
-    # For example, E_r(L=6.5, MLT=12.5)=[Φ(7,13)+Φ(7,12)]/2 - [Φ(6,13)+Φ(6,12)]/2
+    # For example, E_r(L=6.5, MLT=12.5)=Φ(7,13)+Φ(7,12) - Φ(6,13)+Φ(6,12)
     # Recall matrix multiplication rules to know how we can reverse engineer each row in A knowing the above
-    # So for E_r, 1/2 should be where Φ(7,13)+Φ(7,12) is, and -1/2 should be where Φ(6,13)+Φ(6,12) is
-    # For the example above, that row in A looks like [0.....-1/2,-1/2, 0....1/2, 1/2, 0...0].
+    # So for E_r, 1 should be where Φ(7,13)+Φ(7,12) is, and -1 should be where Φ(6,13)+Φ(6,12) is
+    # For the example above, that row in A looks like [0.....-1,-1, 0....1, 1, 0...0].
 
     # For E_az, things are slightly different, E_az(L=6.5, MLT=12.5) = 1/L * 24/2π * [Φ(7,13)+Φ(6,13)]/2 - [Φ(7,12)+Φ(6,12)]/2
     # 1/L represents the 1/r△Θ in the gradient operator, and 24/2π is the conversion from radians to MLT
@@ -317,7 +318,7 @@ def get_A(min_Lvalue, max_Lvalue):
     # In order to index it nicely, we must subtract the minimum value from the max value, so we can start indexing at 0
     # As a result, L_counter does not always represent the actual L value
     # In this case, the real L value is calculated by adding L_counter by min_Lvalue
-    matrix_value_r = .5
+    matrix_value_r = 1
     for L_counter in range(L_range):
         # This only accounts for MLT values from 0.5 to 22.5. The value where MLT = 23.5 is an exception handled at the end
         for MLT_counter in range(0, 23):
@@ -328,7 +329,7 @@ def get_A(min_Lvalue, max_Lvalue):
             A[get_A_row(L_counter, MLT_counter), get_A_col(L_counter, MLT_counter, 25)] = matrix_value_r
 
             # Here is where we implement the A values that give E_az at the same point that the above E_r was found
-            matrix_value_az = .5 * 24 / (2 * np.pi) / (L_counter + min_Lvalue)
+            matrix_value_az = 1 * 24 / (2 * np.pi) / (L_counter + min_Lvalue)
             A[get_A_row(L_counter, MLT_counter, 1), get_A_col(L_counter, MLT_counter)] = -matrix_value_az
             A[get_A_row(L_counter, MLT_counter, 1), get_A_col(L_counter, MLT_counter, 24)] = -matrix_value_az
             A[get_A_row(L_counter, MLT_counter, 1), get_A_col(L_counter, MLT_counter, 1)] = matrix_value_az
@@ -342,7 +343,7 @@ def get_A(min_Lvalue, max_Lvalue):
         A[get_A_row(L_counter, other=46), get_A_col(L_counter, other=24)] = matrix_value_r
 
         # E_az
-        matrix_value_az = .5 * 24 / (2 * np.pi) / (L_counter + min_Lvalue)
+        matrix_value_az = 1 * 24 / (2 * np.pi) / (L_counter + min_Lvalue)
         A[get_A_row(L_counter, other=47), get_A_col(L_counter, other=23)] = -matrix_value_az
         A[get_A_row(L_counter, other=47), get_A_col(L_counter, other=47)] = -matrix_value_az
         A[get_A_row(L_counter, other=47), get_A_col(L_counter)] = matrix_value_az
@@ -418,7 +419,7 @@ def get_C(min_Lvalue, max_Lvalue):
 
     return C
 
-def calculate_potential(imef_data):
+def calculate_potential(imef_data, name_of_variable):
     # Determine the L range that the data uses
     min_Lvalue = imef_data['L'][0, 0].values
     max_Lvalue = imef_data['L'][-1, 0].values
@@ -428,9 +429,9 @@ def calculate_potential(imef_data):
     nL = int(max_Lvalue - min_Lvalue + 1)
     nMLT = 24
 
-    # Get the electric field data and make them into vectors
-    E_r = imef_data['E_GSE_mean'][:, :, 0].values.flatten()
-    E_az = imef_data['E_GSE_mean'][:, :, 1].values.flatten()
+    # Get the electric field data and make them into vectors. MUST BE POLAR COORDINATES
+    E_r = imef_data[name_of_variable][:, :, 0].values.flatten()
+    E_az = imef_data[name_of_variable][:, :, 1].values.flatten()
 
     # Create the number of elements that the potential will have
     nElements = 24 * int(max_Lvalue - min_Lvalue + 1)
@@ -455,5 +456,54 @@ def calculate_potential(imef_data):
     # V=(A^T * A + γ * C^T * C)^-1 * A^T * E
     V = np.dot(np.dot(np.linalg.inv(np.dot(A.T, A) + gamma * np.dot(C.T, C)), A.T), E)
     V = V.reshape(nL + 1, nMLT)
+
+    return V
+
+def calculate_potential_2(imef_data, name_of_variable, guess):
+    # Determine the L range that the data uses
+    min_Lvalue = imef_data['L'][0, 0].values
+    max_Lvalue = imef_data['L'][-1, 0].values
+
+    # Find the number of bins relative to L and MLT
+    # nL is the number of L values in E, not Φ. So there will be nL+1 in places. There are 6 L values in E, but 7 in Φ (As L is taken at values of 4.5, 5.5, etc in E, but 4, 5, etc in Φ)
+    nL = int(max_Lvalue - min_Lvalue + 1)
+    nMLT = 24
+
+    # Get the electric field data and make them into vectors. MUST BE POLAR COORDINATES
+    E_r = imef_data[name_of_variable][:, :, 0].values.flatten()
+    E_az = imef_data[name_of_variable][:, :, 1].values.flatten()
+
+    # Create the number of elements that the potential will have
+    nElements = 24 * int(max_Lvalue - min_Lvalue + 1)
+    E = np.zeros(2 * nElements)
+
+    # Reformat E_r and E_az so that they are combined into 1 vector following the format
+    # [E_r(L=4, MLT=0), E_az(L=4, MLT=0), E_r(L=4, MLT=1), E_az(L=4, MLT=1), ... E_r(L=5, MLT=0), E_az(L=5, MLT=0), ...]
+    for index in range(0, nElements):
+        E[2 * index] = E_r[index]
+        E[2 * index + 1] = E_az[index]
+
+    # Create the A matrix
+    A = get_A(min_Lvalue, max_Lvalue)
+
+    # Create the C matrix
+    C = get_C(min_Lvalue, max_Lvalue)
+
+    # Define the tradeoff parameter γ
+    gamma = 2.51e-4
+
+    # HERE IS THE DIFFERENCES FROM CALCULATE_POTENTIAL
+
+    def loss(v, A, E, C, gamma):
+        function = np.dot(np.transpose(np.dot(A,v)-E),(np.dot(A,v)-E))+ gamma * np.dot(np.dot(np.transpose(v),C),v)
+        return function
+
+    def grad_loss(v, A, E, C, gamma):
+        return 2 * np.transpose(A) @ A @ v - 2*np.transpose(A)@E + 2*gamma*np.transpose(C)@C@v
+
+    # Solve the inverse problem according to the equation in Matsui 2004 and Korth 2002
+    V = optimize.minimize(loss, guess, args=(A, E, C, gamma), method="CG", jac=grad_loss)
+    optimized = V.x
+    # V = V.reshape(nL + 1, nMLT)
 
     return V
