@@ -12,13 +12,13 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_efield_cartesian(nL, nMLT, imef_data):
+def plot_efield_cartesian(nL, nMLT, imef_data, plotted_variable):
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Ex = imef_data['E_GSE_mean'].loc[:, :, 'x'].values.reshape(nL, nMLT)
-    Ey = imef_data['E_GSE_mean'].loc[:, :, 'y'].values.reshape(nL, nMLT)
+    Ex = imef_data[plotted_variable].loc[:, :, 'x'].values.reshape(nL, nMLT)
+    Ey = imef_data[plotted_variable].loc[:, :, 'y'].values.reshape(nL, nMLT)
 
     # Plot the data
     fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
@@ -26,13 +26,13 @@ def plot_efield_cartesian(nL, nMLT, imef_data):
     # Plot the electric field
     # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
     # May need to be changed when more data points are present
-    # ax1 = axes[0, 0]
-    # ax1.quiver(phi, r, Ex, Ey, scale=2)
-    # ax1.set_xlabel("Electric Field")
-    # ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
+    ax1 = axes[0, 0]
+    ax1.quiver(phi, r, Ex, Ey, scale=14)
+    ax1.set_xlabel("Electric Field")
+    ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
 
     # Draw the earth
-    # draw_earth(ax1)
+    draw_earth(ax1)
 
     # Plot the number of data points in each bin
     ax2 = axes[0, 1]
@@ -43,13 +43,13 @@ def plot_efield_cartesian(nL, nMLT, imef_data):
     plt.show()
 
 
-def plot_efield_polar(nL, nMLT, imef_data):  # Update this to spherical if needed
+def plot_efield_polar(nL, nMLT, imef_data, plotted_variable):  # Update this to spherical if needed
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Er = imef_data['E_GSE_polar_mean'].loc[:, :, 'r'].values.reshape(nL, nMLT)
-    Ephi = imef_data['E_GSE_polar_mean'].loc[:, :, 'phi'].values.reshape(nL, nMLT)
+    Er = imef_data[plotted_variable].loc[:, :, 'r'].values.reshape(nL, nMLT)
+    Ephi = imef_data[plotted_variable].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
     # Convert to cartesian coordinates
     # Scaling the vectors doesn't work correctly unless this is done.

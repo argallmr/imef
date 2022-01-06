@@ -341,17 +341,17 @@ def main():
 
     parser.add_argument('extra_data', type=str,
                         help='Data other than electric field data that the user wants downloaded and binned. Formatting: ex1,ex2,.... '
-                             'If no extra data points, put None. Options for extra data are: Kp, IEF. More may be added later')
+                             'For no extra data points, put None. Options for extra data are: Kp, IEF. More may be added later')
 
     parser.add_argument('driving_parameter', type=str,
                         help='Choose a driving parameter to separate the data by. Formatting: driving_parameter1:number_of_bins1'
-                             'ex: [Kp,3]. For no driving parameter, put None. Options for driving parameters are: Kp, IEF. More may be added later')
+                             'ex: Kp,3. For no driving parameter, put None. Options for driving parameters are: Kp, IEF. More may be added later')
 
-    parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
+    parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DDTHH:MM:SS"')
 
-    parser.add_argument('end_date', type=str, help='End date of the data interval: ''"YYYY-MM-DDTHH:MM:SS""')
+    parser.add_argument('end_date', type=str, help='End date of the data interval:  "YYYY-MM-DDTHH:MM:SS"')
 
-    parser.add_argument('filename', type=str, help='Output file name. Include .nc at the end of the desired file name')
+    parser.add_argument('filename', type=str, help='Output file name. Do not include file extension')
 
     parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
 

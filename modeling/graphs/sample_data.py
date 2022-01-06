@@ -30,9 +30,9 @@ def main():
 
     parser.add_argument('level', type=str, help='Data level. Eg:l2')
 
-    parser.add_argument('start_date', type=str, help='Start date of the data interval: ' '"YYYY-MM-DDTHH:MM:SS""')
+    parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DDTHH:MM:SS"')
 
-    parser.add_argument('end_date', type=str, help='End date of the data interval: ''"YYYY-MM-DDTHH:MM:SS""')
+    parser.add_argument('end_date', type=str, help='End date of the data interval:  "YYYY-MM-DDTHH:MM:SS"')
 
     parser.add_argument('filename', type=str, help='Output file name')
 

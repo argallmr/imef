@@ -93,7 +93,7 @@ def slice_data_by_time(full_data, ti, te):
     return time, wanted_value
 
 
-def expand_5min(time, kp):
+def expand_5min_kp(time, kp):
     # This is for a very specific case, where you are given times at the very beginning of a day, and you only want 5 minute intervals. All other cases should be run through expand_kp
 
     # Expanding the kp values is easy, as np.repeat does this for us.
@@ -125,14 +125,16 @@ def expand_5min(time, kp):
     return new_times, new_kp
 
 def expand_kp(kp_times, kp, time_to_expand_to):
-    # Note that this function is capable of doing the same thing as expand_5min. However this is slower (I'm pretty sure it's slower at least)
+    # Note that this function is capable of doing the same thing as expand_5min, and more.
+
+    # Also note that this function can be used for other indices and such as long as they are inputted in the same format as the Kp data is
 
     # Because Datetime objects that are placed into xarrays get transformed into datetime64 objects, and the conventional methods of changing them back do not seem to work,
     # You have to make a datetime64 version of the kp_times so that they can be subtracted correctly
 
     # Iterate through all times and convert them to datetime64 objects
     for time in kp_times:
-        # The timedelta is done because the min function used later favors the lower value when a tie is found. We want the upper value to be favored, so we have to change the time a little
+        # The timedelta is done because the min function used later chooses the lower value in the case of a tie. We want the upper value to be chosen
         if type(time)==type(dt.datetime(2015,9,10)):
             time64 = np.datetime64(time-dt.timedelta(microseconds=1))
         elif type(time)==type(np.datetime64(1,'Y')):
@@ -146,6 +148,7 @@ def expand_kp(kp_times, kp, time_to_expand_to):
             datetime64_kp_times = np.append(datetime64_kp_times, [time64])
 
     # This will be used to find the date closest to each time given
+    # It will find the value closest to each given value. In other words it is used to find the closest time to each time from the given list
     absolute_difference_function = lambda list_value: abs(list_value - given_value)
 
     # Iterate through all times that we want to expand kp to
