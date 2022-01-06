@@ -390,7 +390,7 @@ def main():
         raise AttributeError("The same variable cannot be binned and used as a driving parameter at the same time")
 
     # The name of the file where the data will be stored
-    filename = args.filename
+    filename = args.filename+'.nc'
     # Whether the user wants the data in polar coordinates or not
     polar = args.polar
 
