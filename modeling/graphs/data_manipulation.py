@@ -175,7 +175,7 @@ def interpolate_data_like(data, data_like):
     return data
 
 
-def create_timestamps(data, vars_to_bin, ti, te):
+def create_timestamps(data, ti, te):
     # Define the epoch and one second in np.datetime 64. This is so we can convert np.datetime64 objects to timestamp values
     unix_epoch = np.datetime64(0, 's')
     one_second = np.timedelta64(1, 's')
@@ -193,11 +193,14 @@ def create_timestamps(data, vars_to_bin, ti, te):
 
     # Create the array where the unix timestamp values go
     # The timestamp values are needed so we can bin the values with binned_statistic
+    # Note that the data argument must be an xarray object with a 'time' dimension so that this works. Could be generalized at some point
     timestamps = (data['time'].values - unix_epoch) / one_second
 
+    return ti, te, timestamps
+
+def get_5min_times(data, vars_to_bin, timestamps, ti, te):
     # Get the times here. This way we don't have to rerun getting the times for every single variable that is being binned
-    count, bin_edges, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[0]], statistic='count', bins=288,
-                                               range=(ti, te))
+    count, bin_edges, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[0]], statistic='count', bins=288, range=(ti, te))
 
     # Create an nparray where the new 5 minute interval datetime64 objects will go
     new_times = np.array([], dtype=object)
@@ -218,9 +221,8 @@ def create_timestamps(data, vars_to_bin, ti, te):
             # Add the object to the nparray
             new_times = np.append(new_times, [new_time])
 
-    # Return timestamp versions of ti, te, and the datetime64 objects.
-    # Also return the datetime objects of the 5 minute intervals created in binned_statistic
-    return ti, te, timestamps, new_times
+    # Return the datetime objects of the 5 minute intervals created in binned_statistic
+    return new_times
 
 
 def bin_5min(data, vars_to_bin, index_names, ti, te):
@@ -232,7 +234,9 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
     # Or xarray_object = xarray_object.where(np.isnan(test['variable_name'][:,0]) == False, drop=True) (With indices)
 
     # In order to bin the values properly, we need to convert the datetime objects to integers. I chose to use unix timestamps to do so
-    ti, te, timestamps, new_times = create_timestamps(data, vars_to_bin, ti, te)
+    ti, te, timestamps= create_timestamps(data, ti, te)
+    new_times = get_5min_times(data, vars_to_bin, timestamps, ti, te)
+
 
     # Iterate through every variable (and associated index) in the given list
     for var_counter in range(len(vars_to_bin)):
