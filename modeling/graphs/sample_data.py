@@ -18,6 +18,9 @@ np.seterr(over='raise')
 
 # To Do -> When next run of this is complete, check for overflow errors, determine which variables need to be cast to float64, and do so
 
+# Bugs: Failed:  conflicting values for variable 'E_EDP' on objects to be combined. You can skip this check by specifying compat='override'. -> 1/18/16
+# Timestamp('2015-09-18 23:57:30'), Timestamp('2016-01-23 23:57:30') Its a key error, which suggests a dictionary thing. It doesn't break in my code, so bring up to Matt
+
 def main():
     # Take arguments and set up variables
     parser = argparse.ArgumentParser(
@@ -49,7 +52,7 @@ def main():
     t0 = start
 
     # Name of the file where the sampled data will go
-    filename = args.filename
+    filename = args.filename+'.nc'
 
     # Boolean containing whether the file has been created
     if args.exists:
@@ -88,8 +91,8 @@ def main():
             # Read MEC data
             mec_data = dd.get_mec_data(sc, mode, level, ti, te, binned=True)
 
-            # Read EDP data
-            edp_data = dd.get_edp_data(sc, level, ti, te, binned=True)
+            # Read EDP data. The way it is written is causes an error sometimes. More Detailed in the download_data file
+            # edp_data = dd.get_edp_data(sc, level, ti, te, binned=True)
 
             # Read OMNI data
             # There is no standard deviation for omni, since it is an outside package that does the binning itself. I don't think there is a way to get it with a command from the package
@@ -112,6 +115,7 @@ def main():
             # Catch the error and print it out
             # Maybe other errors with the new data too? Who knows. Only thoroughly tested for first 3 downloads
             print('Failed: ', ex)
+            raise ex
         else:
             # Omni data was sampled at 5 minute intervals, which is what we want. We map all the other datasets onto omni_data so that they are all on the same times
             # The spacecraft creates its own electric field and must be removed from the total calculations
@@ -121,7 +125,8 @@ def main():
             edi_data = remove_corot_efield(edi_data, mec_data, RE)
 
             # Combine all of the data into one dataset
-            one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data])
+            # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data])
+            one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data])
 
             # By binning the data, these coordinates become incorrect. They also don't seem to be needed, so just remove them
             one_day_data = one_day_data.drop_vars("Epoch_plus_var")

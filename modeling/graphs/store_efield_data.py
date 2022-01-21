@@ -5,8 +5,8 @@ import xarray as xr
 from data_manipulation import rot2polar, cart2polar, remove_corot_efield, remove_spacecraft_efield
 import argparse
 import plot_nc_data as xrplot
-from storage_objects import LandMLT
-from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data, get_IEF
+from storage_objects import LandMLT, DownloadParameters
+from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data, get_IEF_data
 
 # For debugging purposes
 # np.set_printoptions(threshold=np.inf)
@@ -16,6 +16,7 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data,
 
 # TO DO: Modify this, sample_data, and download_data to use the DownloadParameters container instead of using individual arguments
 # Driving parameter and extra data work together. They don't. It gets separated but not actually ordered to bin. Maybe this is fixed?
+# Some of the functions I have made (mainly binning) will not work when given part of a day. So probably just restrict the user from implementing partial days so we don't have that problem
 
 
 def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data, driving_parameter):
@@ -73,9 +74,9 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
 
         # A dictionary containing the keys for extra data that is available, and the maximum value that the index will measure
         # As more options are created they will be added into here.
-        # This calls all the functions inside when creating dict. Bad. Also not 100% on the max IEF value. It kinda corresponds to Matsui but not
+        # Also not 100% on the max IEF value. It kinda corresponds to Matsui but not
         x = {'Kp': [get_kp_data(ti, te, edi_data['time'].values), 9],
-             'IEF': [get_IEF(ti, te, edi_data['time'].values), 3]}
+             'IEF': [get_IEF_data(ti, te, edi_data['time'].values), 3]} #Does not work as intended. Since the maximum is not a set value, it's kinda difficult to work like this
 
         # A 2D list that contains the data to be binned, along with the name that it will be given when binned.
 
@@ -372,6 +373,8 @@ def main():
     # Start and end dates for download
     t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
     t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
+
+    # download_parameters = DownloadParameters(sc, mode, level, t0, t1)
 
     # Set up extra data and driving parameter arguments
     if args.extra_data == 'None' or args.extra_data == 'none':

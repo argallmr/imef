@@ -234,7 +234,7 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
     # Or xarray_object = xarray_object.where(np.isnan(test['variable_name'][:,0]) == False, drop=True) (With indices)
 
     # In order to bin the values properly, we need to convert the datetime objects to integers. I chose to use unix timestamps to do so
-    ti, te, timestamps= create_timestamps(data, ti, te)
+    ti, te, timestamps = create_timestamps(data, ti, te)
     new_times = get_5min_times(data, vars_to_bin, timestamps, ti, te)
 
 

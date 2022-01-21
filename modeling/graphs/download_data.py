@@ -38,7 +38,9 @@ def read_txt_files(fname_list):
 
 
 def get_edi_data(sc, mode, level, ti, te, binned=False):
-    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
+    # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
+    # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
     # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
@@ -66,6 +68,10 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
     # Rename Epoch to time for consistency across all data files
     edi_data = edi_data.rename({'Epoch': 'time'})
 
+    # This should probably be in the other get_xxx_data functions as well, but they have not caused problems just yet (most of the time they are downloaded in conjunction with this anyways)
+    if len(edi_data['time']) == 0:
+        raise IndexError('No data in this time range')
+
     # We want to use E_GSE, so we bin through E_GSE.
     # Note that binning results in the rest of the variables being dropped.
     if binned == True:
@@ -75,7 +81,9 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
 
 
 def get_fgm_data(sc, mode, ti, te, binned=False):
-    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
+    # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
+    # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
     # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
@@ -91,7 +99,9 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
 
 
 def get_mec_data(sc, mode, level, ti, te, binned=False):
-    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
+    # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
+    # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
     # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
@@ -129,7 +139,9 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
 
 
 def get_edp_data(sc, level, ti, te, binned=False):
-    # If binned is true, the first case when binning will not have enough data to bin into 5 minute intervals.
+    # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
+    # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
+    # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
     # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
@@ -150,6 +162,8 @@ def get_edp_data(sc, level, ti, te, binned=False):
     edp_data_slow = edp_data_slow.rename({'E_GSE': 'E_EDP',
                                           e_slow_vname_label: 'E_index'})
 
+    # So should I be merging as EDP_FAST and EDP_SLOW separately or no? I'm not sure
+    # Right now it is being combined into 1 variable, but that causes an error on certain days (eg. 1/18/16)
     # Combine fast and slow data
     edp_data = xr.merge([edp_data_fast, edp_data_slow])
 
@@ -296,7 +310,7 @@ def get_kp_data(ti, te, expand=[None]):
     return kp_data
 
 
-def get_IEF(ti, te, expand=[None]):
+def get_IEF_data(ti, te, expand=[None]):
     # Note that this only works correctly for one day of info. Maybe will generalize later but for now exactly 1 day
     # Also note that the fgm data should be downloaded with the binned variable set to True
 
