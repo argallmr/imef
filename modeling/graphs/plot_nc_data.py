@@ -12,7 +12,7 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_efield_cartesian(nL, nMLT, imef_data, plotted_variable):
+def plot_efield_cartesian(nL, nMLT, imef_data, plotted_variable, log=False):
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
@@ -36,14 +36,19 @@ def plot_efield_cartesian(nL, nMLT, imef_data, plotted_variable):
 
     # Plot the number of data points in each bin
     ax2 = axes[0, 1]
+    ax2.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax2.set_xlabel("Count")
-    im = ax2.pcolormesh(phi, r, imef_data['E_GSE_count'].data, cmap='YlOrRd', shading='auto')
+    if log==True:
+        im = ax2.pcolormesh(phi, r, np.log10(imef_data['E_GSE_count'].data), cmap='YlOrRd', shading='auto')
+    else:
+        im = ax2.pcolormesh(phi, r, imef_data['E_GSE_count'].data, cmap='YlOrRd', shading='auto')
     fig.colorbar(im, ax=ax2)
+    draw_earth(ax2)
 
     plt.show()
 
 
-def plot_efield_polar(nL, nMLT, imef_data, plotted_variable):  # Update this to spherical if needed
+def plot_efield_polar(nL, nMLT, imef_data, plotted_variable, log=False):  # Update this to spherical if needed
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
@@ -74,9 +79,14 @@ def plot_efield_polar(nL, nMLT, imef_data, plotted_variable):  # Update this to 
 
     # Plot the number of data points in each bin
     ax2 = axes[0, 1]
+    ax2.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax2.set_xlabel("Count")
-    im = ax2.pcolormesh(phi, r, imef_data['E_GSE_polar_count'].data, cmap='YlOrRd', shading='auto')
+    if log==True:
+        im = ax2.pcolormesh(phi, r, np.log10(imef_data['E_GSE_polar_count'].data), cmap='YlOrRd', shading='auto')
+    else:
+        im = ax2.pcolormesh(phi, r, imef_data['E_GSE_polar_count'].data, cmap='YlOrRd', shading='auto')
     fig.colorbar(im, ax=ax2)
+    draw_earth(ax2)
 
     plt.show()
 
@@ -113,10 +123,11 @@ def plot_potential(nL, nMLT, imef_data, V_data):
     # May need to be changed when more data points are present
     ax1 = axes[0, 0]
     ax1.set_xlabel("Potential")
+    ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     im = ax1.contourf(new_phi, new_r, new_V_data, cmap='coolwarm', vmin=-25, vmax=25)
     # plt.clabel(im, inline=True, fontsize=8)
     # plt.imshow(new_V_data, extent=[-40, 12, 0, 10], cmap='RdGy', alpha=0.5)
-    # fig.colorbar(im, ax=ax1)
+    fig.colorbar(im, ax=ax1)
     # Draw the earth
     draw_earth(ax1)
 

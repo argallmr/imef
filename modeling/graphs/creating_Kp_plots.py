@@ -146,14 +146,13 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
         if component == 0:
             fig2.legend(title="Kp Index")
 
-    plt.show()
-
-    fig2_counts, axes2_counts = plt.subplots(nrows=3, ncols=3, squeeze=False)
-    plt.suptitle('Number of Data Points in Each L Range')
-    counter2_counts = 0
+    # plt.show()
 
     # This is fucked. I think its cause something isn't getting reset where it should be.
     # However I don't think that this is something I actually need to fix, since I will be using the other counts plot
+    # fig2_counts, axes2_counts = plt.subplots(nrows=3, ncols=3, squeeze=False)
+    # plt.suptitle('Number of Data Points in Each L Range')
+    # counter2_counts = 0
     # for Kp_value_counts in range(8):
     #     list = []
     #     row=int(Kp_value_counts / 3)
@@ -172,6 +171,22 @@ def plot_Kp(data, data2, nbins, nbins2, mode):
     #         ax2_counts.bar(data['iL'].values + 4.5, list)
     #         ax2_counts.set_title(labels[Kp_value_counts])
 
+    # This is a single bar graph, with counts on the y axis and Kp value on the x axis
+    # Specifically with data2 being 9 bins
+    fig3_counts, axes3_counts = plt.subplots(nrows=1, ncols=1, squeeze=False)
+    list = []
+    for Kp_values in range (8):
+        if Kp_values==0:
+            string = 'E_GSE_Kp_' + str(Kp_values) + '_to_' + str(Kp_values+1) + '.0_count'
+        else:
+            string = 'E_GSE_Kp_' + str(Kp_values) + '.0_to_' + str(Kp_values + 1) + '.0_count'
+        list.append(data2[string].values.sum())
+    axes3_counts[0][0].set_xlabel('Kp_value')
+    axes3_counts[0][0].set_ylabel('$log_{10}(counts)$')
+    axes3_counts[0][0].set_title('$log_{10}(counts)$')
+    axes3_counts[0][0].bar(np.arange(0.5, 8.5, 1), np.log10(list), color='blue')
+    axes3_counts[0][0].set_xlim(0,9)
+    plt.show()
 
 def weighted_average(data, data_counts):
     total = sum(data * data_counts)

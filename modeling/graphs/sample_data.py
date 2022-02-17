@@ -104,6 +104,9 @@ def main():
             # Read DES data
             des_data = dd.get_des_data(sc, mode, level, ti, te, binned=True)
 
+            # Read IEF data
+            ief_data = dd.get_IEF_data(ti, te)
+
             # There are times where x, y, and z are copied, but the corresponding values are not, resulting in 6 coordinates
             # This throws an error when trying to computer the cross product in remove_spacecraft_efield, so raise an error here if this happens
             # Only seems to happen on one day, 12/18/16
@@ -126,7 +129,7 @@ def main():
 
             # Combine all of the data into one dataset
             # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data])
-            one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data])
+            one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data, ief_data])
 
             # By binning the data, these coordinates become incorrect. They also don't seem to be needed, so just remove them
             one_day_data = one_day_data.drop_vars("Epoch_plus_var")

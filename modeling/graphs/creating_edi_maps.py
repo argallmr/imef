@@ -4,6 +4,7 @@ import data_manipulation as dm
 import argparse
 import numpy as np
 
+
 def main():
     parser = argparse.ArgumentParser(
         description='Calculate the electric potential from electric field data given by the user (from a file created by store_efield_data), and exports to a csv file '
@@ -50,12 +51,13 @@ def main():
     # plotting (if the user wants)
     if no_show==False and polar==True:
         # Plot Electric Field + Count Data
-        xrplot.plot_efield_polar(nL, nMLT, imef_data, variable_name)
+        xrplot.plot_efield_polar(nL, nMLT, imef_data, variable_name, log=True)
         # Plot Potential
         xrplot.plot_potential(nL, nMLT, imef_data, V)
     elif no_show==False and polar==False:
         # Plot Electric Field + Count Data
-        xrplot.plot_efield_cartesian(nL, nMLT, imef_data, variable_name)
+        xrplot.plot_efield_cartesian(nL, nMLT, imef_data, variable_name, log=True)
+
 
 if __name__ == '__main__':
     main()

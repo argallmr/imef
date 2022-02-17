@@ -11,6 +11,7 @@ import argparse
 import storage_objects
 import datetime as dt
 import xarray as xr
+from sklearn.preprocessing import MinMaxScaler
 
 #TODO: Generalize inputs so that it isn't just Kp
 # Make error for not enough data points
@@ -55,8 +56,7 @@ def get_inputs(data_filename):
         else:
             design_matrix_array.append(new_data_line)
 
-    design_matrix_array = torch.tensor(design_matrix_array)
-    efield_data = torch.from_numpy(imef_data['E_GSE'].values[60:, :])
+    efield_data = imef_data['E_GSE'].values[60:, :]
 
     return design_matrix_array, efield_data
 
@@ -65,7 +65,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
-        pred = model(X)
+        pred = model(X.float())
         loss = loss_fn(pred, y.float())
 
         # Backpropagation
@@ -84,7 +84,7 @@ def test_loop(dataloader, model, loss_fn):
 
     with torch.no_grad():
         for X, y in dataloader:
-            pred = model(X)
+            pred = model(X.float())
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
@@ -114,10 +114,41 @@ def main():
     train_filename = args.input_filename
     test_filename = args.input_filename_2
 
-    # design_matrix = torch.from_numpy(design_matrix_array)
-
+    # This doesn't make the input and outputs in between 0 and 1. this is probably why the loss isn't decreasing
     train_inputs, train_targets = get_inputs(train_filename)
     test_inputs, test_targets = get_inputs(test_filename)
+
+    print(type(train_inputs))
+    print(type(train_targets))
+
+    # This is supposed ot make all the values in between 0 and 1. but its not. wtf. Maybe I don't need to after all? Now I'm just confused
+    the_scaler = MinMaxScaler()
+    if np.max(np.array(train_inputs)) <= np.max(np.array(test_inputs)):
+        train_inputs = the_scaler.fit_transform(train_inputs)
+        test_inputs = the_scaler.transform(test_inputs)
+    else:
+        test_inputs = the_scaler.fit_transform(test_inputs)
+        train_inputs = the_scaler.transform(train_inputs)
+
+    print(np.max(np.array(train_inputs)))
+    print(np.max(np.array(test_inputs)))
+
+    # This part should be put back into the get_inputs function if we don't need to scale to 1 before putting into the NN
+    train_inputs = torch.tensor(train_inputs)
+    train_targets = torch.from_numpy(train_targets)
+
+    test_inputs = torch.tensor(test_inputs)
+    test_targets = torch.from_numpy(test_targets)
+
+    print(type(train_inputs))
+    print(type(train_targets))
+
+    print('BREAK')
+    print('BREAK')
+    print('BREAK')
+    print('BREAK')
+    print('BREAK')
+    print('BREAK')
 
     # Im going to jump. Everything I had done to this point was not needed. Pytorch has it's own thing for creating a tensor dataset
     train_dataset = TensorDataset(train_inputs, train_targets)
@@ -140,7 +171,7 @@ def main():
     # the number of data samples propagated through the network before the parameters are updated
     batch_size = 1
     # the number times to iterate over the dataset
-    epochs = 10
+    epochs = 5
     # The loss function
     loss_fn = nn.MSELoss()
     # Something else to be messed with idk
