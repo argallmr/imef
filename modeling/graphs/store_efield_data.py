@@ -17,6 +17,7 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data,
 # TO DO: Modify this, sample_data, and download_data to use the DownloadParameters container instead of using individual arguments
 # Driving parameter and extra data work together. They don't. It gets separated but not actually ordered to bin. Maybe this is fixed?
 # Some of the functions I have made (mainly binning) will not work when given part of a day. So probably just restrict the user from implementing partial days so we don't have that problem
+# Maybe introduce a -std argument, so that if we actually want the standard deviation it can be done, otherwise don't do it. It really clutters the final product
 
 
 def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data, driving_parameter):
@@ -34,7 +35,7 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
     for data in data_to_bin:
 
         # Average and bin the data into a file called filename
-        imef_data = bin_data(imef_data, data[0], data[1], L_and_MLT, binnum, created_file, filename)
+        imef_data = bin_data(imef_data, data[0], data[1], L_and_MLT, binnum, created_file, filename, polar)
 
         # Add the newly binned data to the existing data
         if data == data_to_bin[0]:
@@ -262,7 +263,7 @@ def create_imef_data(data, L_and_MLT, count, polar):
     return imef_data
 
 
-def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filename):
+def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filename, polar):
     for ibin in range((L_and_MLT.nL + 2) * (L_and_MLT.nMLT + 2)):
         # `binned_statistic_2d` adds one bin before and one bin after the specified
         # bin `range` in each dimension. This means the number of bin specified by
@@ -281,10 +282,12 @@ def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filena
 
         # Do not do anything if the bin is empty
         bool_idx = binnum == ibin
-        # if imef_data['E_GSE_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0]) == True:  # Theres an error here. I don't know why
-        #     continue
-        if imef_data['E_GSE_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
-            continue
+        if polar:  # Theres an error here. I don't know why
+            if imef_data['E_GSE_polar_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
+                continue
+        else:
+            if imef_data['E_GSE_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
+                continue
 
         imef_data[data_name + '_mean'].loc[ir, ic] = data[data_name][bool_idx].mean(dim='time')
         imef_data[data_name + '_std'].loc[ir, ic] = data[data_name][bool_idx].std(dim='time')
@@ -346,7 +349,7 @@ def main():
 
     parser.add_argument('driving_parameter', type=str,
                         help='Choose a driving parameter to separate the data by. Formatting: driving_parameter1:number_of_bins1'
-                             'ex: Kp,3. For no driving parameter, put None. Options for driving parameters are: Kp, IEF. More may be added later')
+                             'ex: Kp:3. For no driving parameter, put None. Options for driving parameters are: Kp, IEF. More may be added later')
 
     parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DDTHH:MM:SS"')
 
