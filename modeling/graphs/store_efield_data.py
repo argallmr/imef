@@ -357,7 +357,7 @@ def main():
 
     parser.add_argument('filename', type=str, help='Output file name. Do not include file extension')
 
-    parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
+    # parser.add_argument('-n', '--no-show', help='Do not show the plot.', action='store_true')
 
     parser.add_argument('-e', '--exists',
                         help='The output file already exists, merge the data across the new dates with the existing data',
@@ -472,14 +472,14 @@ def main():
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
-
-    # Plot the data, unless specified otherwise
-    if not args.no_show:
-        # If the user chose to store edi data in polar coordinates, plot that data. Otherwise plot in cartesian
-        if polar:
-            xrplot.plot_efield_polar(nL, nMLT, imef_data)
-        else:
-            xrplot.plot_efield_cartesian(nL, nMLT, imef_data)
+    #
+    # # Plot the data, unless specified otherwise
+    # if not args.no_show:
+    #     # If the user chose to store edi data in polar coordinates, plot that data. Otherwise plot in cartesian
+    #     if polar:
+    #         xrplot.plot_efield_polar(nL, nMLT, imef_data)
+    #     else:
+    #         xrplot.plot_efield_cartesian(nL, nMLT, imef_data)
 
 
 if __name__ == '__main__':

@@ -10,6 +10,8 @@ import pandas as pd
 import os
 import data_manipulation as dm
 
+np.set_printoptions(threshold=np.inf)
+
 
 def download_ftp_files(remote_location, local_location, fname_list):
     for fname in fname_list:
@@ -318,6 +320,7 @@ def get_IEF_data(ti, te, expand=[None]):
 
     # Find the magnitude of the velocity vector of the plasma at each point
     V = np.array([])
+    # print(omni_data['V_OMNI'].values)
     for counter in range(len(omni_data['V_OMNI'].values)):
         start = np.linalg.norm(omni_data['V_OMNI'][counter].values)
         V = np.append(V, [start])

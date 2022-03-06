@@ -14,7 +14,6 @@ np.set_printoptions(threshold=np.inf)
 # There will be a large number of -1*(data) in these functions as a result
 
 # TODO: I should probably make a choice for consistency: either make the person input the variable, make it an optional argument, or don't implement anything else
-#  Combine plot_efield_cartesian and plot_efield_polar into one function with an optional argument to change between cartesian and polar
 #  Probably remove the plotting from store_efield_data
 #  I might have to generalize some things to make it not Kp only (specifically if I start doing IEF stuff)
 
@@ -26,57 +25,33 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_efield_cartesian(nL, nMLT, imef_data, plotted_variable, log=False):
+def plot_efield(imef_data, plotted_variable, mode='cartesian', log_counts=False):
+
+    # find L and MLT range used in the data given
+    min_Lvalue = imef_data['L'][0, 0].values
+    max_Lvalue = imef_data['L'][-1, 0].values
+    nL = int(max_Lvalue - min_Lvalue + 1)
+
+    min_MLTvalue = imef_data['MLT'][0, 0].values
+    max_MLTvalue = imef_data['MLT'][0, -1].values
+    nMLT = int(max_MLTvalue - min_MLTvalue + 1)
 
     # Create a coordinate grid
     phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
     r = imef_data['L'].values.reshape(nL, nMLT)
-    Ex = imef_data[plotted_variable].loc[:, :, 'x'].values.reshape(nL, nMLT)
-    Ey = imef_data[plotted_variable].loc[:, :, 'y'].values.reshape(nL, nMLT)
+    if mode=='polar':
+        Er = imef_data[plotted_variable].loc[:, :, 'r'].values.reshape(nL, nMLT)
+        Ephi = imef_data[plotted_variable].loc[:, :, 'phi'].values.reshape(nL, nMLT)
 
-    # Plot the data
-    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
+        # Convert to cartesian coordinates
+        # Scaling the vectors in the plotting doesn't work correctly unless this is done.
+        Ex = Er * np.cos(phi) - Ephi * np.sin(phi)
+        Ey = Er * np.sin(phi) + Ephi * np.cos(phi)
+    elif mode=='cartesian':
+        Ex = imef_data[plotted_variable].loc[:, :, 'x'].values.reshape(nL, nMLT)
+        Ey = imef_data[plotted_variable].loc[:, :, 'y'].values.reshape(nL, nMLT)
 
-    # Plot the electric field
-    # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
-    # May need to be changed when more data points are present
-    ax1 = axes[0, 0]
-    # Note that Ex and Ey are multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    ax1.quiver(phi, r, -1*Ex, -1*Ey, scale=14)
-    ax1.set_xlabel("Electric Field")
-    ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
-
-    # Draw the earth
-    draw_earth(ax1)
-
-    # Plot the number of data points in each bin
-    ax2 = axes[0, 1]
-    ax2.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
-    ax2.set_xlabel("Count")
-    if log==True:
-        im = ax2.pcolormesh(phi, r, np.log10(imef_data['E_GSE_count'].data), cmap='YlOrRd', shading='auto')
-    else:
-        im = ax2.pcolormesh(phi, r, imef_data['E_GSE_count'].data, cmap='YlOrRd', shading='auto')
-    fig.colorbar(im, ax=ax2)
-    draw_earth(ax2)
-
-    plt.show()
-
-
-def plot_efield_polar(nL, nMLT, imef_data, plotted_variable, log=False):  # Update this to spherical if needed
-
-    # Create a coordinate grid
-    phi = (2 * np.pi * imef_data['MLT'].values / 24).reshape(nL, nMLT)
-    r = imef_data['L'].values.reshape(nL, nMLT)
-    Er = imef_data[plotted_variable].loc[:, :, 'r'].values.reshape(nL, nMLT)
-    Ephi = imef_data[plotted_variable].loc[:, :, 'phi'].values.reshape(nL, nMLT)
-
-    # Convert to cartesian coordinates
-    # Scaling the vectors doesn't work correctly unless this is done.
-    Ex = Er * np.cos(phi) - Ephi * np.sin(phi)
-    Ey = Er * np.sin(phi) + Ephi * np.cos(phi)
-
-    # Plot the data
+    # Create figures
     fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
     fig.tight_layout()
 
@@ -86,7 +61,7 @@ def plot_efield_polar(nL, nMLT, imef_data, plotted_variable, log=False):  # Upda
     ax1 = axes[0, 0]
 
     # Note that Ex and Ey are multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    ax1.quiver(phi, r, -1*Ex, -1*Ey, scale=14)
+    ax1.quiver(phi, r, -1 * Ex, -1 * Ey, scale=14)
     ax1.set_xlabel("Electric Field")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax1.set_theta_direction(1)
@@ -98,14 +73,16 @@ def plot_efield_polar(nL, nMLT, imef_data, plotted_variable, log=False):  # Upda
     ax2 = axes[0, 1]
     ax2.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax2.set_xlabel("Count")
-    if log==True:
-        im = ax2.pcolormesh(phi, r, np.log10(imef_data['E_GSE_polar_count'].data), cmap='YlOrRd', shading='auto')
+    # Create the name of the counts variable associated with the plotted variable inputted
+    counts_name = plotted_variable[:len(plotted_variable)-4]+'count'
+
+    print(counts_name)
+    if log_counts == True:
+        im = ax2.pcolormesh(phi, r, np.log10(imef_data[counts_name].data), cmap='YlOrRd', shading='auto')
     else:
-        im = ax2.pcolormesh(phi, r, imef_data['E_GSE_polar_count'].data, cmap='YlOrRd', shading='auto')
+        im = ax2.pcolormesh(phi, r, imef_data[counts_name].data, cmap='YlOrRd', shading='auto')
     fig.colorbar(im, ax=ax2)
     draw_earth(ax2)
-
-    plt.show()
 
 
 def plot_potential(nL, nMLT, imef_data, V_data):
