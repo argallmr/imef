@@ -42,7 +42,10 @@ class TestNeuralNetwork(nn.Module):
 
 
 def get_inputs(data_filename):
+    # I could remove all but 2 or 3 Kp values (since theres going to be 60 values but only 2 different ones), but since the time of each actually matters I think I'm going to leave all 60 in
+    # Next step is to include IEF values in this as well
     imef_data = xr.open_dataset(data_filename)
+    print(imef_data['Kp'])
     index_data = imef_data['Kp']
     imef_data = imef_data.where(np.isnan(imef_data['E_GSE'][:, 0]) == False, drop=True)
 
@@ -57,6 +60,9 @@ def get_inputs(data_filename):
             design_matrix_array.append(new_data_line)
 
     efield_data = imef_data['E_GSE'].values[60:, :]
+
+    design_matrix_array = torch.tensor(design_matrix_array)
+    efield_data = torch.from_numpy(efield_data)
 
     return design_matrix_array, efield_data
 
@@ -86,7 +92,6 @@ def test_loop(dataloader, model, loss_fn):
         for X, y in dataloader:
             pred = model(X.float())
             test_loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
     test_loss /= num_batches
     print(f"Test Error: \n Avg loss: {test_loss:>8f} \n")
@@ -118,47 +123,18 @@ def main():
     train_inputs, train_targets = get_inputs(train_filename)
     test_inputs, test_targets = get_inputs(test_filename)
 
-    print(type(train_inputs))
-    print(type(train_targets))
-
-    # This is supposed ot make all the values in between 0 and 1. but its not. wtf. Maybe I don't need to after all? Now I'm just confused
-    the_scaler = MinMaxScaler()
-    if np.max(np.array(train_inputs)) <= np.max(np.array(test_inputs)):
-        train_inputs = the_scaler.fit_transform(train_inputs)
-        test_inputs = the_scaler.transform(test_inputs)
-    else:
-        test_inputs = the_scaler.fit_transform(test_inputs)
-        train_inputs = the_scaler.transform(train_inputs)
-
-    print(np.max(np.array(train_inputs)))
-    print(np.max(np.array(test_inputs)))
-
-    # This part should be put back into the get_inputs function if we don't need to scale to 1 before putting into the NN
-    train_inputs = torch.tensor(train_inputs)
-    train_targets = torch.from_numpy(train_targets)
-
-    test_inputs = torch.tensor(test_inputs)
-    test_targets = torch.from_numpy(test_targets)
-
-    print(type(train_inputs))
-    print(type(train_targets))
-
-    print('BREAK')
-    print('BREAK')
-    print('BREAK')
-    print('BREAK')
-    print('BREAK')
-    print('BREAK')
-
     # Im going to jump. Everything I had done to this point was not needed. Pytorch has it's own thing for creating a tensor dataset
     train_dataset = TensorDataset(train_inputs, train_targets)
     test_dataset = TensorDataset(test_inputs, test_targets)
 
+    # the number of data samples propagated through the network before the parameters are updated
+    batch_size = 40
+
     # need to do training and test somehow. Will probably have to do something about that in IMEFDataset.
     # Or rework it so that IMEF dataset takes the data I give it instead of reading the file directly.
     # Wait I only need training data for this program. I could just use the 6 years of data as training and use the data from 9/1/21 onwards as test data.
-    train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using {device} device')
@@ -168,8 +144,6 @@ def main():
     # All this stuff is what will have to be messed with in order to get best possible approximation. Along with the layers in the network itself
     # how much to update models parameters at each batch/epoch. Smaller values yield slow learning speed, while large values may result in unpredictable behavior during training.
     learning_rate = 1e-3
-    # the number of data samples propagated through the network before the parameters are updated
-    batch_size = 1
     # the number times to iterate over the dataset
     epochs = 5
     # The loss function

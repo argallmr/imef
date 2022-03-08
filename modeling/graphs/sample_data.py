@@ -105,6 +105,7 @@ def main():
             des_data = dd.get_des_data(sc, mode, level, ti, te, binned=True)
 
             # Read IEF data
+            # Also already in 5 minute increments (derived from the omni data)
             ief_data = dd.get_IEF_data(ti, te)
 
             # There are times where x, y, and z are copied, but the corresponding values are not, resulting in 6 coordinates
@@ -118,7 +119,7 @@ def main():
             # Catch the error and print it out
             # Maybe other errors with the new data too? Who knows. Only thoroughly tested for first 3 downloads
             print('Failed: ', ex)
-            raise ex
+            # raise ex
         else:
             # Omni data was sampled at 5 minute intervals, which is what we want. We map all the other datasets onto omni_data so that they are all on the same times
             # The spacecraft creates its own electric field and must be removed from the total calculations
@@ -128,7 +129,7 @@ def main():
             edi_data = remove_corot_efield(edi_data, mec_data, RE)
 
             # Combine all of the data into one dataset
-            # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data])
+            # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data, ief_data])
             one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data, ief_data])
 
             # By binning the data, these coordinates become incorrect. They also don't seem to be needed, so just remove them
@@ -154,7 +155,7 @@ def main():
     complete_data = xr.merge([complete_data, kp_data])
 
     # Output the data to a file with the name given by the user
-    complete_data.to_netcdf(args.filename)
+    complete_data.to_netcdf(filename)
 
 if __name__ == '__main__':
     main()

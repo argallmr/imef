@@ -10,6 +10,8 @@ import pandas as pd
 import os
 import data_manipulation as dm
 
+np.set_printoptions(threshold=np.inf)
+
 
 def download_ftp_files(remote_location, local_location, fname_list):
     '''
@@ -34,7 +36,7 @@ def download_ftp_files(remote_location, local_location, fname_list):
                     shutil.copyfileobj(r, f)
 
 
-def read_txt_files(fname_list):
+def read_txt_files(fname_list, local_location):
     '''
     Read Kp data into a Pandas dataframe
 
@@ -42,6 +44,8 @@ def read_txt_files(fname_list):
     ----------
     fname_list : list of str
         Files containing Kp index
+    local_location : str
+        Path to where files are stored
 
     Returns
     -------
@@ -51,7 +55,7 @@ def read_txt_files(fname_list):
     # Combine all of the needed files into one dataframe
     for fname in fname_list:
         # Read file into a pandas dataframe, and remove the text at the top
-        oneofthem = pd.read_table('data/kp/' + fname, header=29)
+        oneofthem = pd.read_table(local_location + fname, header=29)
         if fname == fname_list[0]:
             # If this is the first time going through the loop, designate the created dataframe as where all the data will go
             full_data = oneofthem
@@ -395,7 +399,7 @@ def get_kp_data(ti, te, expand=[None]):
     download_ftp_files(remote_location, local_location, fname_list)
 
     # Combine all of the needed files into one dataframe
-    full_kp_data = read_txt_files(fname_list)
+    full_kp_data = read_txt_files(fname_list, local_location)
 
     # Select the data we actually want
     time, kp = dm.slice_data_by_time(full_kp_data, ti, te)
@@ -426,6 +430,7 @@ def get_IEF_data(ti, te, expand=[None]):
 
     # Find the magnitude of the velocity vector of the plasma at each point
     V = np.array([])
+    # print(omni_data['V_OMNI'].values)
     for counter in range(len(omni_data['V_OMNI'].values)):
         start = np.linalg.norm(omni_data['V_OMNI'][counter].values)
         V = np.append(V, [start])
@@ -455,3 +460,20 @@ def get_IEF_data(ti, te, expand=[None]):
     IEF_data['IEF'] = xr.DataArray(IEF, dims=['time'], coords={'time': time})
 
     return IEF_data
+
+
+def get_dst_data(ti, te, expand=[None]):
+    # Use the real-time version i guess?
+    # Location of the files on the server
+    # this one might be a https or http server? idk how to do that, but the data is on different links on the kyoto website. fuck
+    remote_location = 'ftp://ftp.ngdc.noaa.gov/STP/GEOMAGNETIC_DATA/INDICES/DST/'
+    # Location where the file will be places locally
+    local_location = 'data/dst/'
+
+    # Parts of the filename, will be put together along with a year number. final product eg: Kp_ap_2018.txt
+    file_name_template = "Kp_ap_"
+    file_name_extension = '.txt'
+
+    # Where the list of data points required will be stored
+    fname_list = []
+    increment = ti.year

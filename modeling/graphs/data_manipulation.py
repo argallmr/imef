@@ -50,6 +50,8 @@ def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     # Remove E_sc from the measured electric field
     edi_data['E_GSE'] = edi_data['E_GSE'] - E_sc
 
+    edi_data['E_sc'] = E_sc
+
     return edi_data
 
 
@@ -59,7 +61,9 @@ def remove_corot_efield(edi_data, mec_data, RE):
 
     E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
 
-    edi_data = edi_data - E_corot
+    edi_data['E_GSE'] = edi_data['E_GSE'] - E_corot
+
+    edi_data['E_Corot'] = E_corot
 
     return edi_data
 

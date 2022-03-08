@@ -51,12 +51,12 @@ def main():
     # plotting (if the user wants)
     if no_show==False and polar==True:
         # Plot Electric Field + Count Data
-        xrplot.plot_efield_polar(nL, nMLT, imef_data, variable_name, log=True)
+        xrplot.plot_efield(imef_data, variable_name, mode='polar', log_counts=True)
         # Plot Potential
         xrplot.plot_potential(nL, nMLT, imef_data, V)
     elif no_show==False and polar==False:
         # Plot Electric Field + Count Data
-        xrplot.plot_efield_cartesian(nL, nMLT, imef_data, variable_name, log=True)
+        xrplot.plot_efield(imef_data, variable_name, mode='cartesian', log_counts=True)
 
 
 if __name__ == '__main__':

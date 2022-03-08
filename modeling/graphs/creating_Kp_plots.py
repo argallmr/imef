@@ -39,8 +39,8 @@ def main():
 
     # If the user gave Kp bin sizes of one or three
     if one:
-        xrplot.line_plot(data, mode=mode, MLT_range=[3, 9])
-        xrplot.line_plot(data, mode=mode, MLT_range=[15, 21])
+        # xrplot.line_plot(data, mode=mode, MLT_range=[3, 9])
+        xrplot.line_plot(data, mode=mode, MLT_range=[16, 23], Kp_range=[0,6])
     else:
         xrplot.efield_vs_kp_plot(data, mode=mode)
 
