@@ -12,6 +12,18 @@ import data_manipulation as dm
 
 
 def download_ftp_files(remote_location, local_location, fname_list):
+    '''
+    Transfer files from FTP location to local location
+
+    Parameters
+    ----------
+    remote_location : str
+        Location on the FTP server where files are located
+    local_location : str
+        Local location where remote FTP files are to be copied
+    fname_list : list of str
+        List of files on the FTP site to be transferred
+    '''
     for fname in fname_list:
         # Check if they exist
         if os.path.isfile(local_location + fname) == 0:
@@ -23,6 +35,19 @@ def download_ftp_files(remote_location, local_location, fname_list):
 
 
 def read_txt_files(fname_list):
+    '''
+    Read Kp data into a Pandas dataframe
+
+    Parameters
+    ----------
+    fname_list : list of str
+        Files containing Kp index
+
+    Returns
+    -------
+    full_data : `pandas.DataFrame`
+        Kp data
+    '''
     # Combine all of the needed files into one dataframe
     for fname in fname_list:
         # Read file into a pandas dataframe, and remove the text at the top
@@ -38,6 +63,28 @@ def read_txt_files(fname_list):
 
 
 def get_edi_data(sc, mode, level, ti, te, binned=False):
+    '''
+    Load EDI data. Time tags of EDI data are moved to the beginning of the
+    accumulation interval to facilitate binning of other data products.
+
+    Parameters
+    ----------
+    sc : str
+        Spacecraft identifier: {'mms1', 'mms2', 'mms3', 'mms4'}
+    mode : str
+        Data rate mode: {'srvy', 'slow', 'fast', 'brst'}
+    level : str
+        Data level: {'l1a', 'l2'}
+    ti, te: `datetime.datetime`
+        Start and end of the data interval
+    binned : bool
+        Bin/average data into 5-minute intervals
+
+    Returns
+    -------
+    edi_data : `xarray.Dataset`
+        EDI electric field data
+    '''
     # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
     # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
     # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
@@ -81,6 +128,27 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
 
 
 def get_fgm_data(sc, mode, ti, te, binned=False):
+    '''
+    Load FGM data.
+
+    Parameters
+    ----------
+    sc : str
+        Spacecraft identifier: {'mms1', 'mms2', 'mms3', 'mms4'}
+    mode : str
+        Data rate mode: {'srvy', 'slow', 'fast', 'brst'}
+    level : str
+        Data level: {'l1a', 'l2'}
+    ti, te: `datetime.datetime`
+        Start and end of the data interval
+    binned : bool
+        Bin/average data into 5-minute intervals
+
+    Returns
+    -------
+    fgm_data : `xarray.Dataset`
+        FGM magnetic field data
+    '''
     # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
     # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
     # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
@@ -99,6 +167,27 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
 
 
 def get_mec_data(sc, mode, level, ti, te, binned=False):
+    '''
+    Load MEC data.
+
+    Parameters
+    ----------
+    sc : str
+        Spacecraft identifier: {'mms1', 'mms2', 'mms3', 'mms4'}
+    mode : str
+        Data rate mode: {'srvy', 'brst'}
+    level : str
+        Data level: {'l2'}
+    ti, te : `datetime.datetime`
+        Start and end of the data interval
+    binned : bool
+        Bin/average data into 5-minute intervals
+
+    Returns
+    -------
+    mec_data : `xarray.Dataset`
+        MEC ephemeris data
+    '''
     # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
     # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
     # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
@@ -139,6 +228,25 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
 
 
 def get_edp_data(sc, level, ti, te, binned=False):
+    '''
+    Load EDP data.
+
+    Parameters
+    ----------
+    sc : str
+        Spacecraft identifier: {'mms1', 'mms2', 'mms3', 'mms4'}
+    level : str
+        Data level: {'l2'}
+    ti, te : `datetime.datetime`
+        Start and end of the data interval
+    binned : bool
+        Bin/average data into 5-minute intervals
+
+    Returns
+    -------
+    edp_data : `xarray.Dataset`
+        EDP electric field data
+    '''
     # binned=True bins the data into 5 minute bins in the intervals (00:00:00, 00:05:00, 00:10:00, etc)
     # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
     # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).

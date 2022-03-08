@@ -176,6 +176,23 @@ def interpolate_data_like(data, data_like):
 
 
 def create_timestamps(data, ti, te):
+    '''
+    Convert times to UNIX timestamps.
+
+    Parameters
+    ----------
+    data : `xarray.DataArray`
+        Data with coordinate 'time' containing the time stamps (np.datetime64)
+    ti, te : `datetime.datetime`
+        Time interval of the data
+
+    Returns
+    -------
+    ti, te : float
+        Time interval converted to UNIX timestamps
+    timestamps :
+        Time stamps converted to UNIX times
+    '''
     # Define the epoch and one second in np.datetime 64. This is so we can convert np.datetime64 objects to timestamp values
     unix_epoch = np.datetime64(0, 's')
     one_second = np.timedelta64(1, 's')
@@ -226,6 +243,23 @@ def get_5min_times(data, vars_to_bin, timestamps, ti, te):
 
 
 def bin_5min(data, vars_to_bin, index_names, ti, te):
+    '''
+    Bin one day's worth of data into 5-minute intervals.
+
+    Parameters
+    ----------
+    data
+
+    vars_to_bin
+
+    index_names
+
+    ti, te
+
+    Returns
+    -------
+    complete_data
+    '''
     # The assumption with this function is that exactly 1 day of data is being inputted. Otherwise this will not work properly, as the number of bins will be incorrect
     # There is probably a simple fix to this, but it isn't implemented
     # Also, any variables that are not in var_to_bin are lost (As they can't be mapped to the new times otherwise)
