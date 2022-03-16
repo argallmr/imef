@@ -60,8 +60,6 @@ def main():
     else:
         created_file = False
 
-    RE = 6371  # km. This is the conversion from km to Earth radii
-
     # A datetime number to increment the dates by one day, but without extending into the next day
     one_day = dt.timedelta(days=1) - dt.timedelta(microseconds=1)
 
@@ -126,7 +124,7 @@ def main():
             edi_data = remove_spacecraft_efield(edi_data, fgm_data, mec_data)
 
             # Remove the corotation electric field
-            edi_data = remove_corot_efield(edi_data, mec_data, RE)
+            edi_data = remove_corot_efield(edi_data, mec_data)
 
             # Combine all of the data into one dataset
             # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data, ief_data])

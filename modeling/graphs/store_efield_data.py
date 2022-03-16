@@ -71,7 +71,7 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
         edi_data = remove_spacecraft_efield(edi_data, fgm_data, mec_data)
 
         # Remove the corotation electric field
-        edi_data = remove_corot_efield(edi_data, mec_data, RE)
+        edi_data = remove_corot_efield(edi_data, mec_data)
 
         # A dictionary containing the keys for extra data that is available, and the maximum value that the index will measure
         # As more options are created they will be added into here.

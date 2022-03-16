@@ -37,6 +37,8 @@ def rot2polar(vec, pos, dim):
 
 
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
+    # This should be done BEFORE converting edi_data to polar
+
     # E = v x B, 1e-3 converts units to mV/m
     E_sc = -1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_GSE'][:, :3])
 
@@ -55,17 +57,73 @@ def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
     return edi_data
 
 
-def remove_corot_efield(edi_data, mec_data, RE):
-    E_corot = (-92100 * RE / np.linalg.norm(mec_data['R_sc'], ord=2,
-                                            axis=mec_data['R_sc'].get_axis_num('R_sc_index')) ** 2)
+# def remove_corot_efield(edi_data, mec_data, RE=6371):
+#     E_corot = (-92100 * RE / np.linalg.norm(mec_data['R_sc'], ord=2,
+#                                             axis=mec_data['R_sc'].get_axis_num('R_sc_index')) ** 2)
+#
+#     E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
+#
+#     edi_data['E_GSE'] = edi_data['E_GSE'] - E_corot
+#
+#     edi_data['E_Corot'] = E_corot
+#
+#     return edi_data
 
-    E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
 
-    edi_data['E_GSE'] = edi_data['E_GSE'] - E_corot
+def remove_corot_efield(edi_data, mec_data):
+    # This should be done BEFORE converting edi_data to polar
 
-    edi_data['E_Corot'] = E_corot
+    # E_corot = C_corot*R_E/r^2 * 𝜙_hat
+    # C_corot is found here
+    omega_E = 2 * np.pi / (24 * 3600)  # angular velocity of Earth (rad/sec)
+    B_0 = 3.12e4  # Earth mean field at surface (nT)
+    R_E = 6371.2  # Earth radius (km)
+    C_corot = omega_E * B_0 * R_E ** 2 * 1e-3  # V (nT -> T 1e-9, km**2 -> (m 1e3)**2)
+
+    # Position in spherical GSE coordinates
+    r_sphr = np.linalg.norm(mec_data['R_sc'], ord=2,
+                            axis=mec_data['R_sc'].get_axis_num('R_sc_index'))
+    phi_sphr = np.arctan2(mec_data['R_sc'][:, 1], mec_data['R_sc'][:, 0])
+    theta_sphr = np.arccos(mec_data['R_sc'][:, 2] / r_sphr)
+
+    # Radial position in equatorial plane
+    #  - for some reason phi_cyl = np.arcsin(y/r_cyl) did not work
+    r_cyl = r_sphr * np.sin(theta_sphr)
+    phi_cyl = np.arctan2(mec_data['R_sc'][:, 1], mec_data['R_sc'][:, 0])
+    z_cyl = mec_data['R_sc'][:, 2]
+
+    # Corotation Electric Field
+    #  - taken from data_manipulation.remove_corot_efield
+    #  - Azimuthal component in the equatorial plane (GSE)
+    E_corot = (-92100 * R_E / r_cyl ** 2)
+    E_corot = np.stack([np.zeros(len(E_corot)), E_corot, np.zeros(len(E_corot))], axis=1)
+    E_corot = xr.DataArray(E_corot,
+                           dims=['time', 'E_index'],
+                           coords={'time': mec_data['time'],
+                                   'E_index': ['r', 'phi', 'z']})
+
+    # Unit vectors
+    x_hat = np.stack([np.cos(phi_cyl), -np.sin(phi_cyl), np.zeros(len(phi_cyl))], axis=1)
+    y_hat = np.stack([np.sin(phi_cyl), np.cos(phi_cyl), np.zeros(len(phi_cyl))], axis=1)
+
+    # Transform to Cartesian
+    Ex_corot = np.einsum('ij,ij->i', E_corot, x_hat)
+    Ey_corot = np.einsum('ij,ij->i', E_corot, y_hat)
+    Ez_corot = np.zeros(len(x_hat))
+    E_gse_corot = xr.DataArray(np.stack([Ex_corot, Ey_corot, Ez_corot], axis=1),
+                               dims=['time', 'E_index'],
+                               coords={'time': E_corot['time'],
+                                       'E_index': ['x', 'y', 'z']})
+
+    # For some reason edi_data['E_GSE'] = edi_data['E_GSE'] - E_gse_corot results in all nan's. strange. This works tho
+    edi_data['E_GSE'][:, 0] = edi_data['E_GSE'][:, 0] - E_gse_corot[:, 0]
+    edi_data['E_GSE'][:, 1] = edi_data['E_GSE'][:, 1] - E_gse_corot[:, 1]
+    edi_data['E_GSE'][:, 2] = edi_data['E_GSE'][:, 2] - E_gse_corot[:, 2]
+
+    edi_data['E_Corot'] = E_gse_corot
 
     return edi_data
+
 
 
 def slice_data_by_time(full_data, ti, te):
