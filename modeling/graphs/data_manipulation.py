@@ -37,10 +37,11 @@ def rot2polar(vec, pos, dim):
 
 
 def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
+    # The assumption is that this is done prior to remove_corot_efield
     # This should be done BEFORE converting edi_data to polar
 
     # E = v x B, 1e-3 converts units to mV/m
-    E_sc = -1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_GSE'][:, :3])
+    E_sc = 1e-3 * np.cross(mec_data['V_sc'][:, :3], fgm_data['B_GSE'][:, :3])
 
     # Make into a DataArray to subtract the data easier
     E_sc = xr.DataArray(E_sc,
@@ -49,28 +50,20 @@ def remove_spacecraft_efield(edi_data, fgm_data, mec_data):
                                 'E_index': ['Ex', 'Ey', 'Ez']},
                         name='E_sc')
 
+    original_egse=edi_data['E_GSE']
+
     # Remove E_sc from the measured electric field
     edi_data['E_GSE'] = edi_data['E_GSE'] - E_sc
+
+    edi_data['Original_E_GSE'] = original_egse
 
     edi_data['E_sc'] = E_sc
 
     return edi_data
 
 
-# def remove_corot_efield(edi_data, mec_data, RE=6371):
-#     E_corot = (-92100 * RE / np.linalg.norm(mec_data['R_sc'], ord=2,
-#                                             axis=mec_data['R_sc'].get_axis_num('R_sc_index')) ** 2)
-#
-#     E_corot = xr.DataArray(E_corot, dims='time', coords={'time': mec_data['time']}, name='E_corot')
-#
-#     edi_data['E_GSE'] = edi_data['E_GSE'] - E_corot
-#
-#     edi_data['E_Corot'] = E_corot
-#
-#     return edi_data
-
-
 def remove_corot_efield(edi_data, mec_data):
+    # This should be done after remove_spacecraft_efield
     # This should be done BEFORE converting edi_data to polar
 
     # E_corot = C_corot*R_E/r^2 * 𝜙_hat
@@ -115,10 +108,14 @@ def remove_corot_efield(edi_data, mec_data):
                                coords={'time': E_corot['time'],
                                        'E_index': ['x', 'y', 'z']})
 
+    minus_spacecraft_egse = edi_data['E_GSE'].copy(deep=True)
+
     # For some reason edi_data['E_GSE'] = edi_data['E_GSE'] - E_gse_corot results in all nan's. strange. This works tho
     edi_data['E_GSE'][:, 0] = edi_data['E_GSE'][:, 0] - E_gse_corot[:, 0]
     edi_data['E_GSE'][:, 1] = edi_data['E_GSE'][:, 1] - E_gse_corot[:, 1]
     edi_data['E_GSE'][:, 2] = edi_data['E_GSE'][:, 2] - E_gse_corot[:, 2]
+
+    edi_data['no_spacecraft_E_GSE'] = minus_spacecraft_egse
 
     edi_data['E_Corot'] = E_gse_corot
 
@@ -270,6 +267,16 @@ def create_timestamps(data, ti, te):
     ti = ti.timestamp() - 14400
     te = te.timestamp() - 14400
 
+    # This is to account for daylight savings
+    # lazy fix: check to see if ti-te is the right amount of time. If yes, move on. If no, fix by changing te to what it should be
+    # This forces the input time to be specifically 1 day of data, otherwise this number doesn't work.
+    # Though maybe the 86400 could be generalized using te-ti before converting to timestamp. Possible change there
+    # Though UTC is definitely something to be done, time permitting (i guess it is in UTC. need to figure out at some point)
+    if te-ti > 86400:
+        te-=3600
+    elif te-ti < 86400:
+        te+=3600
+
     # Create the array where the unix timestamp values go
     # The timestamp values are needed so we can bin the values with binned_statistic
     # Note that the data argument must be an xarray object with a 'time' dimension so that this works. Could be generalized at some point
@@ -332,7 +339,6 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
     # In order to bin the values properly, we need to convert the datetime objects to integers. I chose to use unix timestamps to do so
     ti, te, timestamps = create_timestamps(data, ti, te)
     new_times = get_5min_times(data, vars_to_bin, timestamps, ti, te)
-
 
     # Iterate through every variable (and associated index) in the given list
     for var_counter in range(len(vars_to_bin)):

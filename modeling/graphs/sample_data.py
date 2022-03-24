@@ -9,7 +9,7 @@ import xarray as xr
 np.set_printoptions(threshold=np.inf)
 
 # If numbers overflow, raise an error instead of raising a warning
-np.seterr(over='raise')
+# np.seterr(over='raise')
 
 # Note that it is possible that NaN values appear in the final xarray object. This is because there were no data points in those bins
 # To remove these values for a single variable, use "xarray_object = xarray_object.where(np.isnan(xarray_object['variable_name']) == False, drop=True)" (Variable has no indices)
@@ -19,7 +19,7 @@ np.seterr(over='raise')
 # To Do -> When next run of this is complete, check for overflow errors, determine which variables need to be cast to float64, and do so
 
 # Bugs: Failed:  conflicting values for variable 'E_EDP' on objects to be combined. You can skip this check by specifying compat='override'. -> 1/18/16
-# Timestamp('2015-09-18 23:57:30'), Timestamp('2016-01-23 23:57:30') Its a key error, which suggests a dictionary thing. It doesn't break in my code, so bring up to Matt
+# Timestamp('2015-09-18 23:57:30'), Timestamp('2016-01-23 23:57:30') Its a key error, which suggests a dictionary thing.
 
 def main():
     # Take arguments and set up variables

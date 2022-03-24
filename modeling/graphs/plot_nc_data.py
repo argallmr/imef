@@ -76,7 +76,6 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', log_counts=False)
     # Create the name of the counts variable associated with the plotted variable inputted
     counts_name = plotted_variable[:len(plotted_variable)-4]+'count'
 
-    print(counts_name)
     if log_counts == True:
         im = ax2.pcolormesh(phi, r, np.log10(imef_data[counts_name].data), cmap='YlOrRd', shading='auto')
     else:

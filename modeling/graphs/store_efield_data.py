@@ -472,14 +472,6 @@ def main():
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
-    #
-    # # Plot the data, unless specified otherwise
-    # if not args.no_show:
-    #     # If the user chose to store edi data in polar coordinates, plot that data. Otherwise plot in cartesian
-    #     if polar:
-    #         xrplot.plot_efield_polar(nL, nMLT, imef_data)
-    #     else:
-    #         xrplot.plot_efield_cartesian(nL, nMLT, imef_data)
 
 
 if __name__ == '__main__':
