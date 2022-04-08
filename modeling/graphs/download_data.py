@@ -9,6 +9,7 @@ from contextlib import closing
 import pandas as pd
 import os
 import data_manipulation as dm
+import requests
 
 np.set_printoptions(threshold=np.inf)
 
@@ -26,6 +27,15 @@ def download_ftp_files(remote_location, local_location, fname_list):
     fname_list : list of str
         List of files on the FTP site to be transferred
     '''
+    # this always downloads the file, in contrast to the other which only downloads it if the file doesn't already exist in data/kp
+    # for fname in fname_list:
+    #     # note this will redownload a file that has already been downloaded.
+    #     with open(local_location + fname, 'wb') as f:
+    #         with closing(request.urlopen(remote_location + fname)) as r:
+    #             shutil.copyfileobj(r, f)
+
+    # this does the same thing, but if the file name already exists, it doesn't download the data. note that this doesn't work flawlessly,
+    # as any file that is downloaded from an incomplete month/year will not be updated, which can cause problems. while just deleting the file would fix it, meh
     for fname in fname_list:
         # Check if they exist
         if os.path.isfile(local_location + fname) == 0:
@@ -36,7 +46,16 @@ def download_ftp_files(remote_location, local_location, fname_list):
                     shutil.copyfileobj(r, f)
 
 
-def read_txt_files(fname_list, local_location):
+def download_html_data(remote_location_list, local_location_list):
+    # apparently this line will break if the data/dst/ directory doesn't exist already. maybe find a way to fix
+    for remote_location, local_location in zip(remote_location_list, local_location_list):
+        # this is super finicky if used in the long term, but it will redownload all relatively recent files while not wasting time on the older ones
+        if os.path.isfile(local_location) == 0 or int(local_location[13:17]) > 2021:
+            r = requests.get(remote_location, allow_redirects=True)
+            open(local_location, 'wb').write(r.content)
+
+
+def read_txt_files(fname_list, local_location=None, mode='Kp'):
     '''
     Read Kp data into a Pandas dataframe
 
@@ -45,17 +64,33 @@ def read_txt_files(fname_list, local_location):
     fname_list : list of str
         Files containing Kp index
     local_location : str
-        Path to where files are stored
+        Path to where files are stored, if it isn't included in fname_list
 
     Returns
     -------
     full_data : `pandas.DataFrame`
         Kp data
     '''
+    if mode=='Kp':
+        header=29
+        footer=0
+
     # Combine all of the needed files into one dataframe
     for fname in fname_list:
+        if mode=='Dst' and int(fname[13:17]) < 2020:
+            header = 28
+            footer = 41
+        elif mode=='Dst' and int(fname[13:17]) >= 2020: # something weird happens in 2021 with slicing. it gets words. look into
+            header=34
+            footer=40
+
         # Read file into a pandas dataframe, and remove the text at the top
-        oneofthem = pd.read_table(local_location + fname, header=29)
+        if local_location is not None:
+            oneofthem = pd.read_table(local_location + fname, header=header, skipfooter=footer)
+        else:
+            oneofthem = pd.read_table(fname, header=header, skipfooter=footer)
+
+
         if fname == fname_list[0]:
             # If this is the first time going through the loop, designate the created dataframe as where all the data will go
             full_data = oneofthem
@@ -93,6 +128,7 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
     # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
     # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
     # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    # NOTE THAT USING BINNED==TRUE REQUIRES TE-TI TO BE 1 DAY! Should be something I fix at some point
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
@@ -124,7 +160,7 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
         raise IndexError('No data in this time range')
 
     # We want to use E_GSE, so we bin through E_GSE.
-    # Note that binning results in the rest of the variables being dropped.
+    # Note that binning results in the rest of the variables (everything but E_GSE) being dropped.
     if binned == True:
         edi_data = dm.bin_5min(edi_data, ['E_GSE'], ['E'], ti, te)
 
@@ -430,7 +466,6 @@ def get_IEF_data(ti, te, expand=[None]):
 
     # Find the magnitude of the velocity vector of the plasma at each point
     V = np.array([])
-    # print(omni_data['V_OMNI'].values)
     for counter in range(len(omni_data['V_OMNI'].values)):
         start = np.linalg.norm(omni_data['V_OMNI'][counter].values)
         V = np.append(V, [start])
@@ -462,18 +497,82 @@ def get_IEF_data(ti, te, expand=[None]):
     return IEF_data
 
 
-def get_dst_data(ti, te, expand=[None]):
-    # Use the real-time version i guess?
-    # Location of the files on the server
-    # this one might be a https or http server? idk how to do that, but the data is on different links on the kyoto website. fuck
-    remote_location = 'ftp://ftp.ngdc.noaa.gov/STP/GEOMAGNETIC_DATA/INDICES/DST/'
+def get_dst_data(ti, te, expand=None):
+    # I use two different types of data: since this website only has real-time data from 2020 onwards, and provisional data from 2015 to 2019, I have to use two separate links
+
+    # Location of the files on the server. the month/year is part of the link, so the before and after is broken apart
+    # example link: https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/202011/index.html for November 2020
+    real_time_remote_location_start = 'https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/'
+    provisional_remote_location_start = 'https://wdc.kugi.kyoto-u.ac.jp/dst_provisional/'
+    remote_location_end = '/index.html'
+
     # Location where the file will be places locally
     local_location = 'data/dst/'
 
-    # Parts of the filename, will be put together along with a year number. final product eg: Kp_ap_2018.txt
-    file_name_template = "Kp_ap_"
-    file_name_extension = '.txt'
+    # Naming the files
+    file_name_template = "Dst_"
+    file_name_extension = '.html'
 
-    # Where the list of data points required will be stored
-    fname_list = []
-    increment = ti.year
+    remote_location_list = []
+    local_location_list = []
+    increment_month = ti.month
+    increment_year = ti.year
+
+    # gets all the data in years leading up to the last desired year
+    while increment_year < te.year:
+        if increment_year < 2020:
+            remote_location_start = provisional_remote_location_start
+        else:
+            remote_location_start = real_time_remote_location_start
+        while increment_month <= 12:
+            if increment_month < 10:
+                remote_location_list.append(remote_location_start + str(increment_year) + '0' + str(increment_month) + remote_location_end)
+                local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + '0' + str(increment_month) + file_name_extension)
+            else:
+                remote_location_list.append(remote_location_start + str(increment_year) + str(increment_month) + remote_location_end)
+                local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + str(increment_month) + file_name_extension)
+            increment_month+=1
+        increment_month = 1
+        increment_year+=1
+
+    # gets all the data in the year equal to the end of the desired times
+    while increment_month <= te.month:
+        if te.year < 2020:
+            remote_location_start = provisional_remote_location_start
+        else:
+            remote_location_start = real_time_remote_location_start
+        if increment_month < 10:
+            remote_location_list.append(remote_location_start + str(increment_year) + '0' + str(increment_month) + remote_location_end)
+            local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + '0' + str(increment_month) + file_name_extension)
+        else:
+            remote_location_list.append(remote_location_start + str(increment_year) + str(increment_month) + remote_location_end)
+            local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + str(increment_month) + file_name_extension)
+        increment_month += 1
+
+    # download the data
+    download_html_data(remote_location_list,local_location_list)
+
+    # read the data into python
+    full_data = read_txt_files(local_location_list, mode='Dst')
+
+    time, dst = dm.slice_dst_data(full_data, ti, te)
+
+    # so apparently the website has values from 1 to 24. 1 is the average of the dst values from midnight to 1am. i had coded this to have this same value at the midnight up to this point
+    # shift everything over 30 minutes or 1 hour. 30 minutes works best since it then works as it should with expand
+    # since expand_kp assumes the time is given at the center of the bin, doing 30 minutes is probs best. Though I could also include an if statement and do 1 hour if expand is None
+    time = np.array(time) + dt.timedelta(minutes=30)
+
+    if expand is not None:
+        dst = dm.expand_kp(time, dst, expand)
+        time = expand
+
+    dst = dst.astype('float64') # dst is an integer value, but to keep consistent with kp ill use a float
+
+    # I have the option to put in UT here. Not going to rn but could at a later point
+    # Create an empty dataset at the time values that we made above
+    dst_data = xr.Dataset(coords={'time': time})
+
+    # Put the kp data into the dataset
+    dst_data['DST'] = xr.DataArray(dst, dims=['time'], coords={'time': time})
+
+    return dst_data

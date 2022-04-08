@@ -33,9 +33,9 @@ def main():
 
     parser.add_argument('level', type=str, help='Data level. Eg:l2')
 
-    parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DDTHH:MM:SS"')
+    parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DD"')
 
-    parser.add_argument('end_date', type=str, help='End date of the data interval:  "YYYY-MM-DDTHH:MM:SS"')
+    parser.add_argument('end_date', type=str, help='End date of the data interval:  "YYYY-MM-DD"')
 
     parser.add_argument('filename', type=str, help='Output file name')
 
@@ -46,8 +46,8 @@ def main():
     sc = args.sc
     mode = args.mode
     level = args.level
-    start = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
-    end = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
+    start = dt.datetime.strptime(args.start_date, '%Y-%m-%d')
+    end = dt.datetime.strptime(args.end_date, '%Y-%m-%d')
 
     t0 = start
 
@@ -149,8 +149,10 @@ def main():
     # Download the kp data. This is done outside the loop since it downloads all the data for 1 year at once, so repeating per day would be very inefficient
     kp_data = dd.get_kp_data(start, end, complete_data['time'].values)
 
+    dst_data = dd.get_dst_data(start, end, complete_data['time'].values)
+
     # Merge the kp data with the rest of the data
-    complete_data = xr.merge([complete_data, kp_data])
+    complete_data = xr.merge([complete_data, kp_data, dst_data])
 
     # Output the data to a file with the name given by the user
     complete_data.to_netcdf(filename)

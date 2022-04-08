@@ -4,7 +4,6 @@ from scipy.stats import binned_statistic_2d
 import xarray as xr
 from data_manipulation import rot2polar, cart2polar, remove_corot_efield, remove_spacecraft_efield
 import argparse
-import plot_nc_data as xrplot
 from storage_objects import LandMLT, DownloadParameters
 from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data, get_IEF_data
 
@@ -18,6 +17,8 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data,
 # Driving parameter and extra data work together. They don't. It gets separated but not actually ordered to bin. Maybe this is fixed?
 # Some of the functions I have made (mainly binning) will not work when given part of a day. So probably just restrict the user from implementing partial days so we don't have that problem
 # Maybe introduce a -std argument, so that if we actually want the standard deviation it can be done, otherwise don't do it. It really clutters the final product
+
+# Note: just removed the option to do hours/mins/seconds. probs no need, and it causes problems
 
 
 def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file, L_and_MLT, ti, te, extra_data, driving_parameter):
@@ -351,9 +352,9 @@ def main():
                         help='Choose a driving parameter to separate the data by. Formatting: driving_parameter1:number_of_bins1'
                              'ex: Kp:3. For no driving parameter, put None. Options for driving parameters are: Kp, IEF. More may be added later')
 
-    parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DDTHH:MM:SS"')
+    parser.add_argument('start_date', type=str, help='Start date of the data interval: "YYYY-MM-DD"')
 
-    parser.add_argument('end_date', type=str, help='End date of the data interval:  "YYYY-MM-DDTHH:MM:SS"')
+    parser.add_argument('end_date', type=str, help='End date of the data interval:  "YYYY-MM-DD"')
 
     parser.add_argument('filename', type=str, help='Output file name. Do not include file extension')
 
@@ -374,8 +375,8 @@ def main():
     level = args.level
 
     # Start and end dates for download
-    t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
-    t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
+    t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%d')
+    t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%d')
 
     # download_parameters = DownloadParameters(sc, mode, level, t0, t1)
 

@@ -152,6 +152,60 @@ def slice_data_by_time(full_data, ti, te):
     return time, wanted_value
 
 
+def slice_dst_data(full_data, ti, te):
+    start_of_first_month = dt.datetime(year=ti.year, month=ti.month, day=1)
+    if te.month != 12:
+        end_of_last_month = dt.datetime(year=te.year, month=te.month+1, day=1) - dt.timedelta(hours=1) + dt.timedelta(microseconds=1)
+    else:
+        end_of_last_month = dt.datetime(year=te.year+1, month=1, day=1) - dt.timedelta(hours=1) + dt.timedelta(microseconds=1)
+    time_list = datetime_range(start_of_first_month, end_of_last_month, dt.timedelta(hours=1))
+
+    for counter in range(0, len(full_data)):
+        one_day = str.split(full_data.iloc[counter][0])
+        one_day.pop(0)
+
+        # There are some days that have large dips in dst, eclipsing -100 nT. when this happens, the whitespace between numbers is gone, and looks something like -92-105-111-119-124-109.
+        # this if statement removes those strings, splits them up, and inserts them back into the one_day list as separated strings
+        if len(one_day) != 24:
+            for counter in range(0, 24):
+                number=one_day[counter]
+                if len(number) > 4:
+                    too_big_number = str.split(number, '-')
+                    if too_big_number[0] == '':
+                        too_big_number.pop(0)
+                    too_big_number = (np.array(too_big_number).astype('int64')*-1).astype('str').tolist()
+                    one_day[counter:counter] = too_big_number
+                    one_day.pop(counter+len(too_big_number))
+
+
+        if counter==0:
+            dst_list = np.array(one_day)
+        else:
+            dst_list = np.append(dst_list, [one_day])
+
+    counter2=0
+    while time_list[counter2] < ti:
+        counter2+=1
+
+    counter3 = len(time_list) - 1
+    while time_list[counter3] > te:
+        counter3-=1
+
+    time_list = time_list[counter2:counter3]
+    dst_list = dst_list[counter2:counter3]
+
+    return time_list, dst_list
+
+
+def datetime_range(start, end, delta):
+    datetimes = []
+    current = start
+    while current < end:
+        datetimes.append(current)
+        current += delta
+    return datetimes
+
+
 def expand_5min_kp(time, kp):
     # This is for a very specific case, where you are given times at the very beginning of a day, and you only want 5 minute intervals. All other cases should be run through expand_kp
 
@@ -252,12 +306,16 @@ def create_timestamps(data, ti, te):
     timestamps :
         Time stamps converted to UNIX times
     '''
+
     # Define the epoch and one second in np.datetime 64. This is so we can convert np.datetime64 objects to timestamp values
     unix_epoch = np.datetime64(0, 's')
     one_second = np.timedelta64(1, 's')
 
-    # Round up the end time by one microsecond so the bins aren't marginally incorrect
-    te = te + dt.timedelta(microseconds=1)
+    # Round up the end time by one microsecond so the bins aren't marginally incorrect.
+    # this is good enough for now, but this is a line to keep an eye on, as it will cause some strange things to happen due to the daylight savings fix later on.
+    # if off by 1 microsecond, will erroneously gain/lose 1 hour
+    if (te.second !=0):
+        te = te + dt.timedelta(microseconds=1)
 
     # Convert the start and end times to a unix timestamp
     # This section adapts for the 4 hour time difference (in seconds) that timestamp() automatically applies to datetime. Otherwise the times from data and these time will not line up right
