@@ -314,11 +314,8 @@ def create_timestamps(data, ti, te):
     # Round up the end time by one microsecond so the bins aren't marginally incorrect.
     # this is good enough for now, but this is a line to keep an eye on, as it will cause some strange things to happen due to the daylight savings fix later on.
     # if off by 1 microsecond, will erroneously gain/lose 1 hour
-    if (te.second !=0) and te.second!=30:
+    if (te.second !=0):
         te = te + dt.timedelta(microseconds=1)
-
-    ti_datetime = ti
-    te_datetime = te
 
     # Convert the start and end times to a unix timestamp
     # This section adapts for the 4 hour time difference (in seconds) that timestamp() automatically applies to datetime. Otherwise the times from data and these time will not line up right
@@ -333,14 +330,10 @@ def create_timestamps(data, ti, te):
     # This forces the input time to be specifically 1 day of data, otherwise this number doesn't work.
     # Though maybe the 86400 could be generalized using te-ti before converting to timestamp. Possible change there
     # Though UTC is definitely something to be done, time permitting (i guess it is in UTC. need to figure out at some point)
-    # This will only work for exactly 1 day of data being downloaded. It will be fine for sample and store_edi data,
-    # however if running a big download that goes through a daylight savings day, there will be an issue
-
-    if ti_datetime+dt.timedelta(days=1)==te_datetime:
-        if te-ti > 86400:
-            te-=3600
-        elif te-ti < 86400:
-            te+=3600
+    if te-ti > 86400:
+        te-=3600
+    elif te-ti < 86400:
+        te+=3600
 
     # Create the array where the unix timestamp values go
     # The timestamp values are needed so we can bin the values with binned_statistic
@@ -351,8 +344,7 @@ def create_timestamps(data, ti, te):
 
 def get_5min_times(data, vars_to_bin, timestamps, ti, te):
     # Get the times here. This way we don't have to rerun getting the times for every single variable that is being binned
-    number_of_bins=(te-ti)/300
-    count, bin_edges, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[0]], statistic='count', bins=number_of_bins, range=(ti, te))
+    count, bin_edges, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[0]], statistic='count', bins=288, range=(ti, te))
 
     # Create an nparray where the new 5 minute interval datetime64 objects will go
     new_times = np.array([], dtype=object)
@@ -395,26 +387,23 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
     -------
     complete_data
     '''
-    # Any variables that are not in var_to_bin are lost (As they can't be mapped to the new times otherwise)
+    # The assumption with this function is that exactly 1 day of data is being inputted. Otherwise this will not work properly, as the number of bins will be incorrect
+    # There is probably a simple fix to this, but it isn't implemented
+    # Also, any variables that are not in var_to_bin are lost (As they can't be mapped to the new times otherwise)
     # Note that it is possible that NaN values appear in the final xarray object. This is because there were no data points in those bins
     # To remove these values, use xarray_object = test.where(np.isnan(test['variable_name']) == False, drop=True) (Variable has no indices)
     # Or xarray_object = xarray_object.where(np.isnan(test['variable_name'][:,0]) == False, drop=True) (With indices)
-
-    # Also note that in order for this to work correctly, te-ti must be a multiple of 5 minutes.
-    # This is addressed in the get_xxx_data functions, since they just extend the downloaded times by an extra couple minutes or whatever
 
     # In order to bin the values properly, we need to convert the datetime objects to integers. I chose to use unix timestamps to do so
     ti, te, timestamps = create_timestamps(data, ti, te)
     new_times = get_5min_times(data, vars_to_bin, timestamps, ti, te)
 
-    number_of_bins = (te-ti)/300
-
     # Iterate through every variable (and associated index) in the given list
     for var_counter in range(len(vars_to_bin)):
         if index_names[var_counter] == '':
             # Since there is no index associated with this variable, there is only 1 thing to be meaned. So take the mean of the desired variable
-            means, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='mean', bins=number_of_bins, range=(ti, te))
-            std, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='std', bins=number_of_bins, range=(ti, te))
+            means, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='mean', bins=288, range=(ti, te))
+            std, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]], statistic='std', bins=288, range=(ti, te))
 
             # Create the dataset for the meaned variable
             new_data = xr.Dataset(coords={'time': new_times})
@@ -435,8 +424,8 @@ def bin_5min(data, vars_to_bin, index_names, ti, te):
             for counter in range(len(data[index_names[var_counter] + '_index'])):
                 # Find the mean of var_to_bin
                 # mean is the mean in each bin, bin_edges is the edges of each bin in timestamp values, and binnum is which values go in which bin
-                mean, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='mean', bins=number_of_bins, range=(ti, te))
-                std, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='std', bins=number_of_bins, range=(ti, te))
+                mean, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='mean', bins=288, range=(ti, te))
+                std, bin_edges_again, binnum = binned_statistic(x=timestamps, values=data[vars_to_bin[var_counter]][:, counter], statistic='std', bins=288, range=(ti, te))
 
                 # If there are no means yet, designate the solved mean value as the array where all of the means will be stored. Otherwise combine with existing data
                 if means[0].size == 0:
@@ -612,7 +601,7 @@ def calculate_potential(imef_data, name_of_variable):
     E_az = imef_data[name_of_variable][:, :, 1].values.flatten()
 
     # Create the number of elements that the potential will have
-    nElements = 24 * nL
+    nElements = 24 * int(max_Lvalue - min_Lvalue + 1)
     E = np.zeros(2 * nElements)
 
     # Reformat E_r and E_az so that they are combined into 1 vector following the format

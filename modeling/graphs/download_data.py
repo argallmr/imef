@@ -57,7 +57,7 @@ def download_html_data(remote_location_list, local_location_list):
 
 def read_txt_files(fname_list, local_location=None, mode='Kp'):
     '''
-    Reads data into a Pandas dataframe
+    Read Kp data into a Pandas dataframe
 
     Parameters
     ----------
@@ -77,15 +77,12 @@ def read_txt_files(fname_list, local_location=None, mode='Kp'):
 
     # Combine all of the needed files into one dataframe
     for fname in fname_list:
-        if mode=='Dst' and int(fname[13:17]) == 2021 and int(fname[18:20]) >= 8 or mode=='Dst' and int(fname[13:17]) >=2022:
-            header=34
-            footer=55
-        elif mode=='Dst' and int(fname[13:17]) >= 2020:
-            header=34
-            footer=40
-        elif mode=='Dst' and int(fname[13:17]) < 2020:
+        if mode=='Dst' and int(fname[13:17]) < 2020:
             header = 28
             footer = 41
+        elif mode=='Dst' and int(fname[13:17]) >= 2020: # something weird happens in 2021 with slicing. it gets words. look into
+            header=34
+            footer=40
 
         # Read file into a pandas dataframe, and remove the text at the top
         if local_location is not None:
@@ -131,14 +128,10 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
     # For example, the bin 00:10:00 takes all the data from 00:07:30 and 00:12:30 and bins them
     # The first bin will not have enough data to bin into 5 minute intervals (It goes into the previous day).
     # But we also don't want values to overlap from day to day, so we have to take away another 2.5 minutes from the end so that we don't see repeats
+    # NOTE THAT USING BINNED==TRUE REQUIRES TE-TI TO BE 1 DAY! Should be something I fix at some point
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
-
-        # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
-        # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
-        if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
 
     tm_vname = '_'.join((sc, 'edi', 't', 'delta', 'minus', mode, level))
 
@@ -204,11 +197,6 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
 
-        # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
-        # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
-        if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
-
     # Get FGM data
     fgm_data = fgm.load_data(sc=sc, mode=mode, start_date=ti, end_date=te)
 
@@ -247,11 +235,6 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
-
-        # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
-        # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
-        if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
 
     # The names of the variables that will be downloaded
     r_vname = '_'.join((sc, 'mec', 'r', 'gse'))
@@ -311,11 +294,6 @@ def get_edp_data(sc, level, ti, te, binned=False):
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
-
-        # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
-        # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
-        if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
 
     edp_data_fast = edp.load_data(sc, 'fast', level, start_date=ti, end_date=te)
     edp_data_slow = edp.load_data(sc, 'slow', level, start_date=ti, end_date=te)
@@ -390,11 +368,6 @@ def get_dis_data(sc, mode, level, ti, te, binned=False):
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
 
-        # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
-        # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
-        if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
-
     # Download dis_data
     full_dis_data = fpi.load_moms(sc, mode, level, 'dis-moms', ti, te)
 
@@ -419,11 +392,6 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
     if binned == True:
         ti = ti - dt.timedelta(minutes=2.5)
         te = te - dt.timedelta(minutes=2.5)
-
-        # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
-        # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
-        if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
 
     # Download des_data
     full_des_data = fpi.load_moms(sc, mode, level, 'des-moms', ti, te)
