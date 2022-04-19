@@ -84,8 +84,17 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', log_counts=False)
     draw_earth(ax2)
 
 
-def plot_potential(nL, nMLT, imef_data, V_data):
+def plot_potential(imef_data, V_data):
     # Note that it is expected that the electric field data is in polar coordinates. Otherwise the potential values are incorrect
+
+    # find L and MLT range used in the data given
+    min_Lvalue = imef_data['L'][0, 0].values
+    max_Lvalue = imef_data['L'][-1, 0].values
+    nL = int(max_Lvalue - min_Lvalue + 1)
+
+    min_MLTvalue = imef_data['MLT'][0, 0].values
+    max_MLTvalue = imef_data['MLT'][0, -1].values
+    nMLT = int(max_MLTvalue - min_MLTvalue + 1)
 
     # Create a coordinate grid
     new_values = imef_data['MLT'].values-.5

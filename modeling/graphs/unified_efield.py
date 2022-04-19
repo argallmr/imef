@@ -106,18 +106,27 @@ def main():
         description='PUT DESCRIPTION HERE'
     )
     #
-    parser.add_argument('input_filename', type=str, help='File name of the data created by sample_data.py. Do not include file extension')
+    parser.add_argument('input_filename', type=str, help='File(s) name of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
+                                                         'Do not include file extension')
 
     parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
 
     args = parser.parse_args()
 
-    train_filename = args.input_filename+'.nc'
+    train_filename_list = args.input_filename.split(',')
+
     model_name = args.model_filename+'.pth'
 
-    total_data = xr.open_dataset(train_filename)
+    for train_filename in train_filename_list:
+        total_data = xr.open_dataset(train_filename+'.nc')
+        one_file_inputs, one_file_targets = get_inputs(total_data)
+        if train_filename == train_filename_list[0]:
+            total_inputs = one_file_inputs
+            total_targets = one_file_targets
+        else:
+            total_inputs = torch.concat((total_inputs, one_file_inputs))
+            total_targets = torch.concat((total_targets, one_file_targets))
 
-    total_inputs, total_targets = get_inputs(total_data)
 
     # Take the file and take a portion of it as test data, use rest as train data
     train_inputs, test_inputs, train_targets, test_targets = train_test_split(total_inputs, total_targets, test_size=.15)
@@ -125,7 +134,7 @@ def main():
     train_dataset = TensorDataset(train_inputs, train_targets)
     test_dataset = TensorDataset(test_inputs, test_targets)
 
-    batch_size = 32
+    batch_size = 16
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
@@ -137,7 +146,7 @@ def main():
 
     # All this stuff is what will have to be messed with in order to get best possible approximation. Along with the layers in the network itself
     # how much to update models parameters at each batch/epoch. Smaller values yield slow learning speed, while large values may result in unpredictable behavior during training.
-    learning_rate = 5e-3
+    learning_rate = 1e-2
     # the number times to iterate over the dataset
     epochs = 1000
     loss_fn = nn.MSELoss()

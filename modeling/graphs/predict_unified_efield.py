@@ -18,7 +18,7 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def predict_and_plot(model, time=None, data=None):
+def predict_and_plot(model, time=None, data=None, plot = True, return_pred = False):
     # we need the data from the 5 hours before the time to the time given
     # But the binned argument requires 1 day of data. so I do this instead
     ti = time-dt.timedelta(hours=5)
@@ -72,24 +72,6 @@ def predict_and_plot(model, time=None, data=None):
     Ex_pred = pred[:, 0]
     Ey_pred = pred[:, 1]
 
-    # Create figures
-    fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
-    fig.tight_layout()
-
-    # Plot the electric field
-    # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
-    # May need to be changed when more data points are present
-    ax1 = axes[0, 0]
-
-    # Note that Ex and Ey are multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    ax1.quiver(phi, r, -1 * Ex_pred, -1 * Ey_pred, scale=5)
-    ax1.set_xlabel("Electric Field")
-    ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
-    ax1.set_theta_direction(1)
-
-    # Draw the earth
-    draw_earth(ax1)
-
     # Start calculating the potential
     L = xr.DataArray(r, dims=['iL', 'iMLT'])
     MLT = xr.DataArray(another_thing, dims=['iL', 'iMLT'])
@@ -116,8 +98,29 @@ def predict_and_plot(model, time=None, data=None):
 
     potential = dm.calculate_potential(imef_data, 'predicted_efield_polar_forreal')
 
-    # its a plot. gonna have to like recheck everything in this program but it technically makes a plot so.... yay?
-    xrplot.plot_potential(nL, nMLT, imef_data, potential)
+    if plot==True:
+        # Create figures
+        fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
+        fig.tight_layout()
+
+        # Plot the electric field
+        # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
+        # May need to be changed when more data points are present
+        ax1 = axes[0, 0]
+
+        # Note that Ex and Ey are multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
+        ax1.quiver(phi, r, -1 * Ex_pred, -1 * Ey_pred, scale=5)
+        ax1.set_xlabel("Electric Field")
+        ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
+        ax1.set_theta_direction(1)
+
+        # Draw the earth
+        draw_earth(ax1)
+
+        xrplot.plot_potential(imef_data, potential)
+
+    if return_pred == True:
+        return imef_data, potential
 
 
 def main():

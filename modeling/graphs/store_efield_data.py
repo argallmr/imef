@@ -54,7 +54,7 @@ def prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_f
     # and the new data is not averaged into any existing data from previous runs (assuming the user did not want this to happen)
     created_file = True
 
-    return imef_data, created_file
+    return created_file
 
 
 def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter, ti, te, L_and_MLT):
@@ -283,7 +283,7 @@ def bin_data(imef_data, data, data_name, L_and_MLT, binnum, created_file, filena
 
         # Do not do anything if the bin is empty
         bool_idx = binnum == ibin
-        if polar:  # Theres an error here. I don't know why
+        if polar:
             if imef_data['E_GSE_polar_count'][ir, ic] == 0 or np.isnan(data[data_name][bool_idx].mean(dim='time').values[0])==True:
                 continue
         else:
@@ -468,7 +468,7 @@ def main():
             # Catch the error and print it out
             print('Failed: ', ex)
         else:
-            imef_data, created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
+            created_file = prep_and_store_data(edi_data, fgm_data, mec_data, filename, polar, created_file,
                                                           L_and_MLT, ti, te, extra_data, driving_parameter)
 
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day

@@ -53,7 +53,7 @@ def main():
         # Plot Electric Field + Count Data
         xrplot.plot_efield(imef_data, variable_name, mode='polar', log_counts=True)
         # Plot Potential
-        xrplot.plot_potential(nL, nMLT, imef_data, V)
+        xrplot.plot_potential(imef_data, V)
     elif no_show==False and polar==False:
         # Plot Electric Field + Count Data
         xrplot.plot_efield(imef_data, variable_name, mode='cartesian', log_counts=True)

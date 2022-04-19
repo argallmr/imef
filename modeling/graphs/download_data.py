@@ -442,7 +442,7 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
 
     return des_data
 
-
+# If you are having problems with this function, delete all Kp files in data/kp and run again. This may fix it
 def get_kp_data(ti, te, expand=[None]):
     # Location of the files on the server
     remote_location = 'ftp://ftp.gfz-potsdam.de/pub/home/obs/Kp_ap_Ap_SN_F107/'
@@ -528,7 +528,7 @@ def get_IEF_data(ti, te, expand=[None]):
 
     return IEF_data
 
-
+# If you are having problems with this function, delete all Kp files in data/dst and run again. This may fix it
 def get_dst_data(ti, te, expand=None):
     # I use two different types of data: since this website only has real-time data from 2020 onwards, and provisional data from 2015 to 2019, I have to use two separate links
 
