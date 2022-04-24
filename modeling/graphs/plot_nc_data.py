@@ -25,7 +25,7 @@ def draw_earth(ax):
     ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
 
 
-def plot_efield(imef_data, plotted_variable, mode='cartesian', log_counts=False):
+def plot_efield(imef_data, plotted_variable, mode='cartesian', count=True, log_counts=False):
 
     # find L and MLT range used in the data given
     min_Lvalue = imef_data['L'][0, 0].values
@@ -52,7 +52,10 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', log_counts=False)
         Ey = imef_data[plotted_variable].loc[:, :, 'y'].values.reshape(nL, nMLT)
 
     # Create figures
-    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
+    if count==True:
+        fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False, subplot_kw=dict(projection='polar'))
+    else:
+        fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
     fig.tight_layout()
 
     # Plot the electric field
@@ -70,21 +73,24 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', log_counts=False)
     draw_earth(ax1)
 
     # Plot the number of data points in each bin
-    ax2 = axes[0, 1]
-    ax2.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
-    ax2.set_xlabel("Count")
-    # Create the name of the counts variable associated with the plotted variable inputted
-    counts_name = plotted_variable[:len(plotted_variable)-4]+'count'
+    if count==True:
+        ax2 = axes[0, 1]
+        ax2.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
+        ax2.set_xlabel("Count")
+        # Create the name of the counts variable associated with the plotted variable inputted
+        counts_name = plotted_variable[:len(plotted_variable)-4]+'count'
 
-    if log_counts == True:
-        im = ax2.pcolormesh(phi, r, np.log10(imef_data[counts_name].data), cmap='YlOrRd', shading='auto')
-    else:
-        im = ax2.pcolormesh(phi, r, imef_data[counts_name].data, cmap='YlOrRd', shading='auto')
-    fig.colorbar(im, ax=ax2)
-    draw_earth(ax2)
+        if log_counts == True:
+            im = ax2.pcolormesh(phi, r, np.log10(imef_data[counts_name].data), cmap='YlOrRd', shading='auto')
+        else:
+            im = ax2.pcolormesh(phi, r, imef_data[counts_name].data, cmap='YlOrRd', shading='auto')
+        fig.colorbar(im, ax=ax2)
+        draw_earth(ax2)
+
+    plt.show()
 
 
-def plot_potential(imef_data, V_data):
+def plot_potential(imef_data, V_data, im_test=None):
     # Note that it is expected that the electric field data is in polar coordinates. Otherwise the potential values are incorrect
 
     # find L and MLT range used in the data given

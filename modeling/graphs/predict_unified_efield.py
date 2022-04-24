@@ -38,7 +38,7 @@ def predict_and_plot(model, time=None, data=None, plot = True, return_pred = Fal
     elif time is None and data is None:
         raise TypeError('Either the desired time or the appropriate data must be given')
 
-    test_inputs = get_inputs(complete_data, remove_nan=False, get_test_data=False)
+    test_inputs = get_inputs(complete_data, remove_nan=False, get_target_data=False)
 
     base_kp_values = test_inputs[-1].clone()
 

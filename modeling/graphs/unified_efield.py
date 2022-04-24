@@ -9,12 +9,6 @@ from sklearn.model_selection import train_test_split
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
 
-#TODO: Generalize inputs so that it isn't just Kp
-# Make error for not enough data points
-# Make comments and remove unneeded code
-# Save the model, and then make a new program for testing new data with said model
-# Remove testing from here, and just put that part of the code in the new testing program to be made
-
 # Should I train on everything or just MMS1? How would I store multiple probe information in 1 thingy? I would probably have to run sample_data multiple times, and run get_inputs on each file
 # Then combine the data together after it has been converted to an array (np or otherwise)
 
@@ -23,9 +17,9 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            # First number of first layer has to be # of datapoints
-            # Last number of last thing is 3 (Efield in x, y, and z directions)
-            # The other numbers are arbitrary.
+            # First number of first layer has to be # of inputs
+            # Last number of last layer is 3 (Efield in x, y, and z directions)
+            # The other numbers are arbitrary. Mess around with them and see what happens
             nn.Linear(123, 10),
             nn.Sigmoid(),
             nn.Linear(10, 20),
@@ -39,8 +33,8 @@ class NeuralNetwork(nn.Module):
         return logits
 
 
-def get_inputs(imef_data, remove_nan=True, get_test_data=True):
-    # to test: removing duplicate values from Kp and Dst. if the are 3 or 6 values (respectively), then remove the first. new NN would have 3+3+5=11 inputs. Maybe prevent overfitting
+def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False):
+    # to test: removing duplicate values from Kp and Dst. if the are 3 or 6 values (respectively), then remove the first. new NN would have 3+2+5=10 inputs. Maybe prevent overfitting
     Kp_data = imef_data['Kp']
     Dst_data = imef_data['DST']
     if remove_nan == True:
@@ -48,8 +42,16 @@ def get_inputs(imef_data, remove_nan=True, get_test_data=True):
 
     # Note that the first bits of data cannot be used, because the first 60 times dont have Kp values and whatnot. Will become negligible when done on a large amount of data
     for counter in range(60, len(imef_data['time'].values)):
-        Kp_index_data = Kp_data.values[counter - 60:counter].tolist()
-        Dst_index_data = Dst_data.values[counter - 60:counter].tolist()
+        if remove_dup == True:
+            # this takes away the 5 minute bins and only puts the values of the 2 Kp values and 5 Dst values (3 and 6 gets harder, so I'm gonna stick with this)
+            Kp_all_data = Kp_data.values[counter - 60:counter].tolist()
+            Dst_all_data = Dst_data.values[counter - 60:counter].tolist()
+            Kp_index_data = [Kp_all_data[-1], Kp_all_data[-37]]
+            Dst_index_data = [Dst_all_data[-1], Dst_all_data[-13], Dst_all_data[-25], Dst_all_data[-37], Dst_all_data[-49]]
+        else:
+            Kp_index_data = Kp_data.values[counter - 60:counter].tolist()
+            Dst_index_data = Dst_data.values[counter - 60:counter].tolist()
+
         the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi/12*imef_data['MLT'].values[counter]), np.sin(np.pi/12*imef_data['MLT'].values[counter])]).tolist()
         new_data_line = Kp_index_data + Dst_index_data + the_rest_of_the_data
         if counter == 60:
@@ -58,7 +60,7 @@ def get_inputs(imef_data, remove_nan=True, get_test_data=True):
             design_matrix_array.append(new_data_line)
 
     design_matrix_array = torch.tensor(design_matrix_array)
-    if get_test_data == True:
+    if get_target_data == True:
         efield_data = imef_data['E_GSE'].values[60:, :]
         efield_data = torch.from_numpy(efield_data)
 
@@ -106,7 +108,7 @@ def main():
         description='PUT DESCRIPTION HERE'
     )
     #
-    parser.add_argument('input_filename', type=str, help='File(s) name of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
+    parser.add_argument('input_filename', type=str, help='File name(s) of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
                                                          'Do not include file extension')
 
     parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
@@ -134,7 +136,7 @@ def main():
     train_dataset = TensorDataset(train_inputs, train_targets)
     test_dataset = TensorDataset(test_inputs, test_targets)
 
-    batch_size = 16
+    batch_size = 32
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
