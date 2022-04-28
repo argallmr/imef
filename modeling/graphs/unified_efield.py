@@ -33,8 +33,13 @@ class NeuralNetwork(nn.Module):
         return logits
 
 
-def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False):
-    # to test: removing duplicate values from Kp and Dst. if the are 3 or 6 values (respectively), then remove the first. new NN would have 3+2+5=10 inputs. Maybe prevent overfitting
+def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False, use_values='All'):
+    # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
+    # I leave it this way. Also when I get Sym-H and start needing to do combos I'm gonna have to make use_values a list and split, etc
+
+    if use_values != 'All' and use_values != 'Kp' and use_values != 'Dst':
+        raise KeyError('The use_values argument must be one of: All, Kp, Dst')
+
     Kp_data = imef_data['Kp']
     Dst_data = imef_data['DST']
     if remove_nan == True:
@@ -53,7 +58,14 @@ def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=Fals
             Dst_index_data = Dst_data.values[counter - 60:counter].tolist()
 
         the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi/12*imef_data['MLT'].values[counter]), np.sin(np.pi/12*imef_data['MLT'].values[counter])]).tolist()
-        new_data_line = Kp_index_data + Dst_index_data + the_rest_of_the_data
+
+        if use_values=='Kp':
+            new_data_line = Kp_index_data + the_rest_of_the_data
+        elif use_values=='Dst':
+            new_data_line = Dst_index_data + the_rest_of_the_data
+        else:
+            new_data_line = Kp_index_data + Dst_index_data + the_rest_of_the_data
+
         if counter == 60:
             design_matrix_array = [new_data_line]
         else:
@@ -91,16 +103,19 @@ def train_loop(dataloader, model, loss_fn, optimizer, device):
 def test_loop(dataloader, model, loss_fn, device):
     num_batches = len(dataloader)
     model.eval()
-    test_loss= 0
+    test_loss= np.zeros((3))
 
     with torch.no_grad():
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X.float())
-            test_loss += loss_fn(pred, y).item()
+            test_loss += np.array([loss_fn(pred[:,0], y[:,0]).item(), loss_fn(pred[:,1], y[:,1]).item(), loss_fn(pred[:,2], y[:,2]).item()])
 
     test_loss /= num_batches
-    print(f"Test Error: \n Avg loss: {test_loss:>8f} \n")
+    print("Test Error:")
+    print('   Avg MSE in Ex: ', test_loss[0])
+    print('   Avg MSE in Ey: ', test_loss[1])
+    print('   Avg MSE in Ez: ', test_loss[2],'\n')
 
 
 def main():
@@ -111,17 +126,19 @@ def main():
     parser.add_argument('input_filename', type=str, help='File name(s) of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
                                                          'Do not include file extension')
 
+    parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
+
     parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
 
     args = parser.parse_args()
 
     train_filename_list = args.input_filename.split(',')
-
+    values_to_use = args.input_list
     model_name = args.model_filename+'.pth'
 
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
-        one_file_inputs, one_file_targets = get_inputs(total_data)
+        one_file_inputs, one_file_targets = get_inputs(total_data, use_values=values_to_use)
         if train_filename == train_filename_list[0]:
             total_inputs = one_file_inputs
             total_targets = one_file_targets
