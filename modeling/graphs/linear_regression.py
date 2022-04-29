@@ -20,11 +20,7 @@ class NeuralNetwork(nn.Module):
             # First number of first layer has to be # of inputs
             # Last number of last layer is 3 (Efield in x, y, and z directions)
             # The other numbers are arbitrary. Mess around with them and see what happens
-            nn.Linear(123, 10),
-            nn.Sigmoid(),
-            nn.Linear(10, 20),
-            nn.Sigmoid(),
-            nn.Linear(20, 3),
+            nn.Linear(123, 3),
         )
 
     def forward(self, x):
