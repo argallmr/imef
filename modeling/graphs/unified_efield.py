@@ -1,37 +1,16 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import argparse
 import xarray as xr
 from sklearn.model_selection import train_test_split
+import Neural_Networks as NN
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
 
-# Should I train on everything or just MMS1? How would I store multiple probe information in 1 thingy? I would probably have to run sample_data multiple times, and run get_inputs on each file
-# Then combine the data together after it has been converted to an array (np or otherwise)
-
-class NeuralNetwork(nn.Module):
-    def __init__(self):
-        super(NeuralNetwork, self).__init__()
-        self.flatten = nn.Flatten()
-        self.linear_relu_stack = nn.Sequential(
-            # First number of first layer has to be # of inputs
-            # Last number of last layer is 3 (Efield in x, y, and z directions)
-            # The other numbers are arbitrary. Mess around with them and see what happens
-            nn.Linear(123, 10),
-            nn.Sigmoid(),
-            nn.Linear(10, 20),
-            nn.Sigmoid(),
-            nn.Linear(20, 3),
-        )
-
-    def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
-
+# TODO: Implement cross-validation, so that hopefully test errors of NN's are more accurate
 
 def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False, use_values='All'):
     # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
@@ -115,7 +94,8 @@ def test_loop(dataloader, model, loss_fn, device):
     print("Test Error:")
     print('   Avg MSE in Ex: ', test_loss[0])
     print('   Avg MSE in Ey: ', test_loss[1])
-    print('   Avg MSE in Ez: ', test_loss[2],'\n')
+    print('   Avg MSE in Ez: ', test_loss[2])
+    print('   Avg MSE in all components: ', np.sum(test_loss), '\n')
 
     return test_loss
 
@@ -130,13 +110,19 @@ def main():
 
     parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
 
+    parser.add_argument('number_of_layers', type=str, help='The number of Layers you want the resulting NN to have. Options range from 0 to 3 (0 runs linear regression)')
+
     parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
+
+    parser.add_argument('-r', '--random', help='Randomize the amount of nodes in each hidden layer of the created NN', action='store_true')
 
     args = parser.parse_args()
 
     train_filename_list = args.input_filename.split(',')
     values_to_use = args.input_list
+    number_of_layers = int(args.number_of_layers)
     model_name = args.model_filename+'.pth'
+    random = args.random
 
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
@@ -163,13 +149,39 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using {device} device')
 
-    model = NeuralNetwork().to(device)
+    NN_dict = {0:NN.Linear_Regression,
+               1:NN.NeuralNetwork_1,
+               2:NN.NeuralNetwork_2,
+               3:NN.NeuralNetwork_3}
+
+    try:
+        NeuralNetwork = NN_dict[number_of_layers]
+    except:
+        raise KeyError("The amount of layers inputted is not available")
+
+
+    if values_to_use == 'All':
+        model = NeuralNetwork(123, random).to(device)
+    else:
+        model = NeuralNetwork(63, random).to(device)
+
+    counter=0
+    if number_of_layers != 0:
+        string = str('Inputs: ' + values_to_use + ' || Layers: ')
+        for parameter in model.parameters():
+            if counter%2==0 and counter < 2*number_of_layers-2:
+                string = string + str(len(parameter)) + '-'
+            elif counter%2 == 0 and counter == 2*number_of_layers-2:
+                string = string + str(len(parameter))
+            counter+=1
+    else:
+        string = str('Inputs: ' + values_to_use + ' || Linear Regression ')
 
     # All this stuff is what will have to be messed with in order to get best possible approximation. Along with the layers in the network itself
     # how much to update models parameters at each batch/epoch. Smaller values yield slow learning speed, while large values may result in unpredictable behavior during training.
     learning_rate = 1e-2
     # the number times to iterate over the dataset
-    epochs = 15
+    epochs = 1000
     loss_fn = nn.MSELoss()
     # Something else to be messed with idk
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
@@ -185,10 +197,13 @@ def main():
     final_test_error = final_test_error/10
     print("Done!")
 
+    # Output the test results of the NN and the
     put_error_here = open('test_errors.txt', 'a')
-    output = str('Inputs: '+ values_to_use+ ' || Layers: '+ str(2)+ ' || ExMSE: '+ str(final_test_error[0])+ ' || EyMSE: '+str(final_test_error[1])+ ' || EzMSE: '+str(final_test_error[2])+ '\n')
-    print(output)
+    output = string + str(' || ExMSE: '+ str(final_test_error[0])+ ' || EyMSE: '+str(final_test_error[1])+ ' || EzMSE: '
+                 +str(final_test_error[2])+ ' || Total E MSE: '+ str(np.sum(final_test_error))+'\n')
     put_error_here.write(output)
+
+    print(output)
 
     torch.save(model.state_dict(), model_name)
 

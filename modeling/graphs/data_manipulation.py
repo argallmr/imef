@@ -89,7 +89,7 @@ def remove_corot_efield(edi_data, mec_data):
     #  - taken from data_manipulation.remove_corot_efield
     #  - Azimuthal component in the equatorial plane (GSE)
     E_corot = (-92100 * R_E / r_cyl ** 2)
-    E_corot = np.stack([np.zeros(len(E_corot)), E_corot, np.zeros(len(E_corot))], axis=1)
+    E_corot = np.stack([E_corot, np.zeros(len(E_corot)), np.zeros(len(E_corot))], axis=1)
     E_corot = xr.DataArray(E_corot,
                            dims=['time', 'E_index'],
                            coords={'time': mec_data['time'],
