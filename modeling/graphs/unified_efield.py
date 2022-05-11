@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import argparse
 import xarray as xr
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 import Neural_Networks as NN
 
 # For debugging purposes
@@ -136,29 +136,24 @@ def main():
 
 
     # Take the file and take a portion of it as test data, use rest as train data
-    train_inputs, test_inputs, train_targets, test_targets = train_test_split(total_inputs, total_targets, test_size=.15)
-
-    train_dataset = TensorDataset(train_inputs, train_targets)
-    test_dataset = TensorDataset(test_inputs, test_targets)
+    # train_inputs, test_inputs, train_targets, test_targets = train_test_split(total_inputs, total_targets, test_size=.2)
 
     batch_size = 32
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    kf = KFold(n_splits=5, shuffle=True)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using {device} device')
 
-    NN_dict = {0:NN.Linear_Regression,
-               1:NN.NeuralNetwork_1,
-               2:NN.NeuralNetwork_2,
-               3:NN.NeuralNetwork_3}
+    NN_dict = {0: NN.Linear_Regression,
+               1: NN.NeuralNetwork_1,
+               2: NN.NeuralNetwork_2,
+               3: NN.NeuralNetwork_3}
 
     try:
         NeuralNetwork = NN_dict[number_of_layers]
     except:
         raise KeyError("The amount of layers inputted is not available")
-
 
     if values_to_use == 'All':
         model = NeuralNetwork(123, random).to(device)
@@ -179,6 +174,7 @@ def main():
 
     # All this stuff is what will have to be messed with in order to get best possible approximation. Along with the layers in the network itself
     # how much to update models parameters at each batch/epoch. Smaller values yield slow learning speed, while large values may result in unpredictable behavior during training.
+    # 1e-2 seems good for NNs, but for linear regression it seems to not work. 1e-5 worked, tho. IDK how big of a deal this is
     learning_rate = 1e-2
     # the number times to iterate over the dataset
     epochs = 1000
@@ -188,13 +184,25 @@ def main():
 
     # The actual training
     final_test_error = np.zeros((3))
-    for t in range(epochs):
-        print(f"Epoch {t + 1}\n-------------------------------")
-        train_loop(train_dataloader, model, loss_fn, optimizer, device)
-        test_error = test_loop(test_dataloader, model, loss_fn, device)
-        if epochs-t <=10:
-            final_test_error+=test_error
-    final_test_error = final_test_error/10
+    counter_yay=0
+    for train_index, test_index in kf.split(total_inputs):
+        train_inputs, test_inputs = total_inputs[train_index], total_inputs[test_index]
+        train_targets, test_targets = total_targets[train_index], total_targets[test_index]
+
+        train_dataset = TensorDataset(train_inputs, train_targets)
+        test_dataset = TensorDataset(test_inputs, test_targets)
+
+        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+        for t in range(epochs):
+            print(f"Epoch {t + 1}\n-------------------------------")
+            train_loop(train_dataloader, model, loss_fn, optimizer, device)
+            test_error = test_loop(test_dataloader, model, loss_fn, device)
+            if epochs-t <=10: # This may be something to remove. May be best to only use last test error after the dataset gets cleaned of outliers
+                counter_yay+=1
+                final_test_error+=test_error
+
+    final_test_error = final_test_error/(10*kf.get_n_splits(total_inputs))
     print("Done!")
 
     # Output the test results of the NN and the

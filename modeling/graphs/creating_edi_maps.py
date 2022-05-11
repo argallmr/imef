@@ -25,7 +25,7 @@ def main():
     args = parser.parse_args()
 
     # Designate arguments
-    filename=args.data_file
+    filename=args.data_file+'.nc'
     variable_name=args.data_name
     new_filename=args.output_file_name
     no_show=args.no_show

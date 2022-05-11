@@ -8,7 +8,6 @@ import numpy as np
 class Linear_Regression(nn.Module):
     def __init__(self, number_of_inputs, random=False):
         super(Linear_Regression, self).__init__()
-        self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
             # First number of first layer has to be # of inputs
             # Last number of last layer is 3 (Efield in x, y, and z directions)
@@ -17,7 +16,7 @@ class Linear_Regression(nn.Module):
         )
 
     def forward(self, x):
-        out = self.linear(x)
+        out = self.linear_relu_stack(x)
         return out
 
 
