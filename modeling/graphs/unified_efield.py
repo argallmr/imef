@@ -112,10 +112,13 @@ def main():
     parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
 
     parser.add_argument('layers', type=str, help='The number of nodes you want in each layer of your NN. Eg, a 3 layer NN would look something like 30,20,15. If you want linear regression, type LR instead')
+    # parser.add_argument('number_of_layers', type=int, help='yeah')
 
     parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
 
-    parser.add_argument('-r', '--random', help='Randomize the amount of nodes in each hidden layer of the created NN', action='store_true')
+    parser.add_argument('-r', '--random', help='Randomize the amount of nodes in each hidden layer of the created NN. If you choose to do this, you must input x,y,z as your layers argument, '
+                                               'where x is the lower bound on the number of nodes, y is the upper bound, and z is the number of layers. '
+                                               'Eg: 15,50,3 will make a NN with 3 layers, and all 3 layers have a random number of nodes ranging from 15 to 50', action='store_true')
 
     args = parser.parse_args()
 
@@ -136,7 +139,6 @@ def main():
             total_inputs = torch.concat((total_inputs, one_file_inputs))
             total_targets = torch.concat((total_targets, one_file_targets))
 
-    # HERE IS WHERE TO DETERMINE LAYER ARCHITECTURE
 
 
     # Take the file and take a portion of it as test data, use rest as train data
@@ -154,16 +156,32 @@ def main():
                2: NN.NeuralNetwork_2,
                3: NN.NeuralNetwork_3}
 
+    # HERE IS WHERE TO DETERMINE LAYER ARCHITECTURE
+    if layers == 'LR':
+        # neither of these are truly needed to input into the NN, but its just easier this way
+        number_of_layers = 0
+        NN_layout = np.array([123,3])
+    else:
+        if values_to_use == 'All':
+            NN_layout = np.array([123])
+        else:
+            NN_layout = np.array([63])
+        if random == True:
+            random_values = np.array(layers.split(','))
+            NN_layout = np.append(NN_layout, np.random.randint(random_values[0], random_values[1], random_values[2]))
+        else:
+            NN_layout = np.append(NN_layout, np.array(layers.split(",")))
+        NN_layout = np.append(NN_layout, np.array([3])).astype(int)
+        number_of_layers = len(NN_layout)-2
+
     try:
         NeuralNetwork = NN_dict[number_of_layers]
     except:
         raise KeyError("The amount of layers inputted is not available")
 
-    if values_to_use == 'All':
-        model = NeuralNetwork(123, random).to(device)
-    else:
-        model = NeuralNetwork(63, random).to(device)
+    model = NeuralNetwork(NN_layout).to(device)
 
+    # To output to a txt file, which will be used for keeping track of the NN's I run and their errors
     counter=0
     if number_of_layers != 0:
         string = str('Inputs: ' + values_to_use + ' || Layers: ')
@@ -178,10 +196,13 @@ def main():
 
     # All this stuff is what will have to be messed with in order to get best possible approximation. Along with the layers in the network itself
     # how much to update models parameters at each batch/epoch. Smaller values yield slow learning speed, while large values may result in unpredictable behavior during training.
-    # 1e-2 seems good for NNs, but for linear regression it seems to not work. 1e-5 worked, tho. IDK how big of a deal this is
-    learning_rate = 1e-2
+    # 1e-2 seems good for NNs, but for linear regression it seems to not work. 1e-5 worked, tho. IDK how big of a deal this is. Talk w/Marek
+    if number_of_layers == 0:
+        learning_rate = 1e-5
+    else:
+        learning_rate = 1e-2
     # the number times to iterate over the dataset
-    epochs = 1000
+    epochs = 10
     loss_fn = nn.MSELoss()
     # Something else to be messed with idk
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
@@ -189,6 +210,10 @@ def main():
     # The actual training
     final_test_error = np.zeros((3))
     for train_index, test_index in kf.split(total_inputs):
+        # I think that this does reset the NN, so it can retrain from scratch. Should test a little more tho just in case, but I can't find a way to do so
+        # If I feel the need to change this, make a list containing 5 models before the for loop (one for each fold), and then pick a model from there, and use each for each pass through the loop
+        model = NeuralNetwork(NN_layout).to(device)
+
         train_inputs, test_inputs = total_inputs[train_index], total_inputs[test_index]
         train_targets, test_targets = total_targets[train_index], total_targets[test_index]
 
