@@ -4,13 +4,14 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import argparse
 import xarray as xr
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import KFold
 import Neural_Networks as NN
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
 
-# TODO: Implement cross-validation, so that hopefully test errors of NN's are more accurate
+# TODO: Implement cross-validation, so that test errors of NN's are more accurate
+#  Replace number of layers and random with an argument that takes a list of numbers and turns that into a NN
 
 def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False, use_values='All'):
     # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
@@ -110,7 +111,7 @@ def main():
 
     parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
 
-    parser.add_argument('number_of_layers', type=str, help='The number of Layers you want the resulting NN to have. Options range from 0 to 3 (0 runs linear regression)')
+    parser.add_argument('layers', type=str, help='The number of nodes you want in each layer of your NN. Eg, a 3 layer NN would look something like 30,20,15. If you want linear regression, type LR instead')
 
     parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
 
@@ -120,7 +121,8 @@ def main():
 
     train_filename_list = args.input_filename.split(',')
     values_to_use = args.input_list
-    number_of_layers = int(args.number_of_layers)
+    # number_of_layers = args.number_of_layers
+    layers=args.layers
     model_name = args.model_filename+'.pth'
     random = args.random
 
@@ -133,6 +135,8 @@ def main():
         else:
             total_inputs = torch.concat((total_inputs, one_file_inputs))
             total_targets = torch.concat((total_targets, one_file_targets))
+
+    # HERE IS WHERE TO DETERMINE LAYER ARCHITECTURE
 
 
     # Take the file and take a portion of it as test data, use rest as train data
@@ -184,7 +188,6 @@ def main():
 
     # The actual training
     final_test_error = np.zeros((3))
-    counter_yay=0
     for train_index, test_index in kf.split(total_inputs):
         train_inputs, test_inputs = total_inputs[train_index], total_inputs[test_index]
         train_targets, test_targets = total_targets[train_index], total_targets[test_index]
@@ -199,7 +202,6 @@ def main():
             train_loop(train_dataloader, model, loss_fn, optimizer, device)
             test_error = test_loop(test_dataloader, model, loss_fn, device)
             if epochs-t <=10: # This may be something to remove. May be best to only use last test error after the dataset gets cleaned of outliers
-                counter_yay+=1
                 final_test_error+=test_error
 
     final_test_error = final_test_error/(10*kf.get_n_splits(total_inputs))
