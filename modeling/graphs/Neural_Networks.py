@@ -1,20 +1,4 @@
 from torch import nn
-import numpy as np
-
-
-class Linear_Regression(nn.Module):
-    def __init__(self, layers):
-        super(Linear_Regression, self).__init__()
-        self.linear_relu_stack = nn.Sequential(
-            # First number of first layer has to be # of inputs
-            # Last number of last layer is 3 (Efield in x, y, and z directions)
-            # The other numbers are arbitrary. Mess around with them and see what happens
-            nn.Linear(layers[0], layers[1]),
-        )
-
-    def forward(self, x):
-        out = self.linear_relu_stack(x)
-        return out
 
 
 class NeuralNetwork_1(nn.Module):

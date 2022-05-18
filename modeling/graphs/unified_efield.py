@@ -5,15 +5,14 @@ import numpy as np
 import argparse
 import xarray as xr
 from sklearn.model_selection import KFold
+from sklearn.linear_model import LinearRegression
 import Neural_Networks as NN
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
 
-# TODO: Implement cross-validation, so that test errors of NN's are more accurate
-#  Replace number of layers and random with an argument that takes a list of numbers and turns that into a NN
 
-def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False, use_values='All'):
+def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=False, use_values='All', usetorch=True):
     # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
     # I leave it this way. Also when I get Sym-H and start needing to do combos I'm gonna have to make use_values a list and split, etc
 
@@ -51,10 +50,15 @@ def get_inputs(imef_data, remove_nan=True, get_target_data=True, remove_dup=Fals
         else:
             design_matrix_array.append(new_data_line)
 
-    design_matrix_array = torch.tensor(design_matrix_array)
+    if usetorch==True:
+        design_matrix_array = torch.tensor(design_matrix_array)
+    else:
+        design_matrix_array = np.array(design_matrix_array)
+
     if get_target_data == True:
         efield_data = imef_data['E_GSE'].values[60:, :]
-        efield_data = torch.from_numpy(efield_data)
+        if usetorch==True:
+            efield_data = torch.from_numpy(efield_data)
 
         return design_matrix_array, efield_data
     else:
@@ -101,32 +105,11 @@ def test_loop(dataloader, model, loss_fn, device):
     return test_loss
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='PUT DESCRIPTION HERE'
-    )
-    #
-    parser.add_argument('input_filename', type=str, help='File name(s) of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
-                                                         'Do not include file extension')
-
-    parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
-
-    parser.add_argument('layers', type=str, help='The number of nodes you want in each layer of your NN. Eg, a 3 layer NN would look something like 30,20,15. If you want linear regression, type LR instead')
-    # parser.add_argument('number_of_layers', type=int, help='yeah')
-
-    parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension')
-
-    parser.add_argument('-r', '--random', help='Randomize the amount of nodes in each hidden layer of the created NN. If you choose to do this, you must input x,y,z as your layers argument, '
-                                               'where x is the lower bound on the number of nodes, y is the upper bound, and z is the number of layers. '
-                                               'Eg: 15,50,3 will make a NN with 3 layers, and all 3 layers have a random number of nodes ranging from 15 to 50', action='store_true')
-
-    args = parser.parse_args()
-
+def train_NN(args):
     train_filename_list = args.input_filename.split(',')
     values_to_use = args.input_list
-    # number_of_layers = args.number_of_layers
-    layers=args.layers
-    model_name = args.model_filename+'.pth'
+    layers = args.layers
+    model_name = args.model_filename + '.pth'
     random = args.random
 
     for train_filename in train_filename_list:
@@ -139,40 +122,32 @@ def main():
             total_inputs = torch.concat((total_inputs, one_file_inputs))
             total_targets = torch.concat((total_targets, one_file_targets))
 
-
-
     # Take the file and take a portion of it as test data, use rest as train data
     # train_inputs, test_inputs, train_targets, test_targets = train_test_split(total_inputs, total_targets, test_size=.2)
 
     batch_size = 32
 
-    kf = KFold(n_splits=5, shuffle=True)
+    kf = KFold(n_splits=5, shuffle=True, random_state=142)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using {device} device')
 
-    NN_dict = {0: NN.Linear_Regression,
-               1: NN.NeuralNetwork_1,
+    NN_dict = {1: NN.NeuralNetwork_1,
                2: NN.NeuralNetwork_2,
                3: NN.NeuralNetwork_3}
 
     # HERE IS WHERE TO DETERMINE LAYER ARCHITECTURE
-    if layers == 'LR':
-        # neither of these are truly needed to input into the NN, but its just easier this way
-        number_of_layers = 0
-        NN_layout = np.array([123,3])
+    if values_to_use == 'All':
+        NN_layout = np.array([123])
     else:
-        if values_to_use == 'All':
-            NN_layout = np.array([123])
-        else:
-            NN_layout = np.array([63])
-        if random == True:
-            random_values = np.array(layers.split(','))
-            NN_layout = np.append(NN_layout, np.random.randint(random_values[0], random_values[1], random_values[2]))
-        else:
-            NN_layout = np.append(NN_layout, np.array(layers.split(",")))
-        NN_layout = np.append(NN_layout, np.array([3])).astype(int)
-        number_of_layers = len(NN_layout)-2
+        NN_layout = np.array([63])
+    if random == True:
+        random_values = np.array(layers.split(','))
+        NN_layout = np.append(NN_layout, np.random.randint(random_values[0], random_values[1], random_values[2]))
+    else:
+        NN_layout = np.append(NN_layout, np.array(layers.split(",")))
+    NN_layout = np.append(NN_layout, np.array([3])).astype(int)
+    number_of_layers = len(NN_layout)-2
 
     try:
         NeuralNetwork = NN_dict[number_of_layers]
@@ -183,28 +158,23 @@ def main():
 
     # To output to a txt file, which will be used for keeping track of the NN's I run and their errors
     counter=0
-    if number_of_layers != 0:
-        string = str('Inputs: ' + values_to_use + ' || Layers: ')
-        for parameter in model.parameters():
-            if counter%2==0 and counter < 2*number_of_layers-2:
-                string = string + str(len(parameter)) + '-'
-            elif counter%2 == 0 and counter == 2*number_of_layers-2:
-                string = string + str(len(parameter))
-            counter+=1
-    else:
-        string = str('Inputs: ' + values_to_use + ' || Linear Regression ')
+    string = str('Inputs: ' + values_to_use + ' || Layers: ')
+    for parameter in model.parameters():
+        if counter%2==0 and counter < 2*number_of_layers-2:
+            string = string + str(len(parameter)) + '-'
+        elif counter%2 == 0 and counter == 2*number_of_layers-2:
+            string = string + str(len(parameter))
+        counter+=1
 
     # All this stuff is what will have to be messed with in order to get best possible approximation. Along with the layers in the network itself
     # how much to update models parameters at each batch/epoch. Smaller values yield slow learning speed, while large values may result in unpredictable behavior during training.
-    # 1e-2 seems good for NNs, but for linear regression it seems to not work. 1e-5 worked, tho. IDK how big of a deal this is. Talk w/Marek
-    if number_of_layers == 0:
-        learning_rate = 1e-5
-    else:
-        learning_rate = 1e-2
+    # Ok well 1e-2 worked well before i put in k-fold. now I might need to change it again bc it seems to be doing a fucky
+    learning_rate = 1e-2
     # the number times to iterate over the dataset
-    epochs = 10
+    epochs = 1000
     loss_fn = nn.MSELoss()
     # Something else to be messed with idk
+    # Try out adam here
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
     # The actual training
@@ -232,7 +202,7 @@ def main():
     final_test_error = final_test_error/(10*kf.get_n_splits(total_inputs))
     print("Done!")
 
-    # Output the test results of the NN and the
+    # Output the properties and the test results of the NN
     put_error_here = open('test_errors.txt', 'a')
     output = string + str(' || ExMSE: '+ str(final_test_error[0])+ ' || EyMSE: '+str(final_test_error[1])+ ' || EzMSE: '
                  +str(final_test_error[2])+ ' || Total E MSE: '+ str(np.sum(final_test_error))+'\n')
@@ -241,6 +211,70 @@ def main():
     print(output)
 
     torch.save(model.state_dict(), model_name)
+
+
+def linear_regression(train_filename_list, values_to_use):
+    for train_filename in train_filename_list:
+        total_data = xr.open_dataset(train_filename+'.nc')
+        one_file_inputs, one_file_targets = get_inputs(total_data, use_values=values_to_use, torch=False)
+        if train_filename == train_filename_list[0]:
+            total_inputs = one_file_inputs
+            total_targets = one_file_targets
+        else:
+            total_inputs = np.concat((total_inputs, one_file_inputs))
+            total_targets = np.concat((total_targets, one_file_targets))
+
+    LR = LinearRegression()
+    LR.fit(total_inputs, total_targets)
+
+    length = len(total_inputs[0])
+
+    test_error=np.zeros([3])
+    for counter in range(len(total_inputs)):
+        pred = LR.predict(total_inputs[counter].reshape(-1, length))[0]
+        error = np.sqrt(pred**2 + total_targets[counter]**2)
+        test_error += error
+    test_error /= len(total_inputs)
+
+    print("Done!")
+
+    string = str('Inputs: ' + values_to_use + ' || Layers: Linear Regression')
+    # Output the properties and the test results of the model
+    put_error_here = open('test_errors.txt', 'a')
+    output = string + str(' || ExMSE: ' + str(test_error[0]) + ' || EyMSE: ' + str(test_error[1]) + ' || EzMSE: '
+            + str(test_error[2]) + ' || Total E MSE: ' + str(np.sum(test_error)) + '\n')
+    put_error_here.write(output)
+
+    print(output)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='PUT DESCRIPTION HERE'
+    )
+    #
+    parser.add_argument('input_filename', type=str, help='File name(s) of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
+                                                         'Do not include file extension')
+
+    parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
+
+    parser.add_argument('layers', type=str, help='The number of nodes you want in each layer of your NN. Eg, a 3 layer NN would look something like 30,20,15. If you want to use linear regression, type LR instead')
+
+    parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension. Note that nothing will be saved for linear regression')
+
+    parser.add_argument('-r', '--random', help='Randomize the amount of nodes in each hidden layer of the created NN. If you choose to do this, you must input x,y,z as your layers argument, '
+                                               'where x is the lower bound on the number of nodes, y is the upper bound, and z is the number of layers. '
+                                               'Eg: 15,50,3 will make a NN with 3 layers, and all 3 layers have a random number of nodes ranging from 15 to 50. No effect on linear regression', action='store_true')
+
+    args = parser.parse_args()
+
+    train_filename_list = args.input_filename.split(',')
+    values_to_use = args.input_list
+    layers=args.layers
+
+    if layers == 'LR':
+        linear_regression(train_filename_list, values_to_use)
+    else:
+        train_NN(args)
 
 if __name__ == '__main__':
     main()
