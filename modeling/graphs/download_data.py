@@ -74,6 +74,9 @@ def read_txt_files(fname_list, local_location=None, mode='Kp'):
     if mode=='Kp':
         header=29
         footer=0
+    elif mode=='symh':
+        header=0
+        footer=0
 
     # Combine all of the needed files into one dataframe
     for fname in fname_list:
@@ -93,6 +96,12 @@ def read_txt_files(fname_list, local_location=None, mode='Kp'):
         else:
             oneofthem = pd.read_table(fname, header=header, skipfooter=footer)
 
+        if mode=='symh':
+            # it turns out that the first 3/4 of the file contains stuff that isn't sym-H. So get rid of it
+            oneofthem = oneofthem.iloc[int((3/4)*len(oneofthem)):].reset_index(drop=True)
+
+            # rename the column so that concat will work right. each file reads the first line into the header, so each file has a diff header unless this is done
+            oneofthem = oneofthem.rename(columns={oneofthem.columns[0]: '1hoursymh'})
 
         if fname == fname_list[0]:
             # If this is the first time going through the loop, designate the created dataframe as where all the data will go
@@ -335,7 +344,7 @@ def get_edp_data(sc, level, ti, te, binned=False):
     # So should I be merging as EDP_FAST and EDP_SLOW separately or no? I'm not sure
     # Right now it is being combined into 1 variable, but that causes an error on certain days (eg. 1/18/16)
     # Combine fast and slow data
-    edp_data = xr.merge([edp_data_fast, edp_data_slow])
+    edp_data = xr.merge([edp_data_fast, edp_data_slow], compat='override')
 
     # Reorganize the data to sort by time
     edp_data = edp_data.sortby('time')
@@ -528,8 +537,11 @@ def get_IEF_data(ti, te, expand=[None]):
 
     return IEF_data
 
-# If you are having problems with this function, delete all Kp files in data/dst and run again. This may fix it
+# If you are having problems with this function, delete all dst files in data/dst and run again. This may fix it
 def get_dst_data(ti, te, expand=None):
+    # Theres a possibility that I don't have to split up between realtime and provisional. The page doesn't have links for real time before 2020, but they may still exist
+    # If it's worth it, maybe change all of them to use realtime instead
+
     # I use two different types of data: since this website only has real-time data from 2020 onwards, and provisional data from 2015 to 2019, I have to use two separate links
 
     # Location of the files on the server. the month/year is part of the link, so the before and after is broken apart
@@ -608,3 +620,48 @@ def get_dst_data(ti, te, expand=None):
     dst_data['DST'] = xr.DataArray(dst, dims=['time'], coords={'time': time})
 
     return dst_data
+
+
+# Note that this works fine, but takes up more memory than the other geomagnetic indices, since it is calculated 60x more than dst.
+def get_symh_data(ti, te, expand=None, binned=False):
+    # So I couldn't find any way to actually download the data from here, since the data is hidden behind a submit button
+    # So in order for this to work you will have to download the data files manually
+    # The website for this is https://wdc.kugi.kyoto-u.ac.jp/aeasy/index.html
+    # It only has to be done once, but the most recent file will have to be redownloaded if you want to use the most recent data
+    # The files go in data/symh. Download all the data for each year, and name them symh_YYYY.
+
+    if expand is not None and binned == True:
+        raise ValueError("Expand and binned cannot both be used")
+
+    fname_list = []
+    increment = ti.year
+
+    # Making the names of all the required files
+    while increment <= te.year:
+        fname_list.append('symh_' + str(increment)+'.dat')
+        increment += 1
+
+    full_symh_data = read_txt_files(fname_list, local_location='data/symh/', mode='symh')
+
+    time, symh = dm.slice_symh_data(full_symh_data, ti, te)
+
+    time = np.array(time) + dt.timedelta(seconds=30)
+
+    if expand is not None:
+        symh = dm.expand_kp(time, symh, expand)
+        time = expand
+
+    symh = symh.astype('float64')  # symh is an integer value, but to keep consistent with kp ill use a float
+
+    # I have the option to put in UT here. Not going to rn but could at a later point
+    # Create an empty dataset at the time values that we made above
+    symh_data = xr.Dataset(coords={'time': time})
+
+    # Put the kp data into the dataset
+    symh_data['SYMH'] = xr.DataArray(symh, dims=['time'], coords={'time': time})
+
+    # It would be much more efficient to not do this, and instead do the binning in slice_symh_data, and take 5 values in a row, avg them, and make 5 min times there.
+    if binned == True:
+        symh_data = dm.bin_5min(symh_data, ['SYMH'], [''], ti, te)
+
+    return symh_data

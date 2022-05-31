@@ -106,6 +106,9 @@ def main():
             # Also already in 5 minute increments (derived from the omni data)
             ief_data = dd.get_IEF_data(ti, te)
 
+            # Read SYM-H data
+            symh_data = dd.get_symh_data(start, end, binned=True)
+
             # There are times where x, y, and z are copied, but the corresponding values are not, resulting in 6 coordinates
             # This throws an error when trying to computer the cross product in remove_spacecraft_efield, so raise an error here if this happens
             # Only seems to happen on one day, 12/18/16
@@ -128,7 +131,7 @@ def main():
 
             # Combine all of the data into one dataset
             # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data, ief_data])
-            one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data, ief_data])
+            one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data, ief_data, symh_data])
 
             # By binning the data, these coordinates become incorrect. They also don't seem to be needed, so just remove them
             one_day_data = one_day_data.drop_vars("Epoch_plus_var")
@@ -146,16 +149,18 @@ def main():
         # Increment the start day by an entire day, so that the next run in the loop starts on the next day
         t0 = ti + dt.timedelta(days=1) - timediff
 
-    # Download the kp data. This is done outside the loop since it downloads all the data for 1 year at once, so repeating per day would be very inefficient
+    # Download the kp data. This is done outside the loop since it downloads all the data for 1 year at once, so repeating per day would be inefficient,
+    # and my computer can read all the data in at once, unlike most of the others in the loop
     kp_data = dd.get_kp_data(start, end, complete_data['time'].values)
 
     dst_data = dd.get_dst_data(start, end, complete_data['time'].values)
 
-    # Merge the kp data with the rest of the data
+    # Merge the kp and dst data with the rest of the data
     complete_data = xr.merge([complete_data, kp_data, dst_data])
 
     # Output the data to a file with the name given by the user
     complete_data.to_netcdf(filename)
+
 
 if __name__ == '__main__':
     main()

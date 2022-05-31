@@ -76,6 +76,7 @@ def remove_corot_efield(edi_data, mec_data):
     # Position in spherical GSE coordinates
     r_sphr = np.linalg.norm(mec_data['R_sc'], ord=2,
                             axis=mec_data['R_sc'].get_axis_num('R_sc_index'))
+
     phi_sphr = np.arctan2(mec_data['R_sc'][:, 1], mec_data['R_sc'][:, 0])
     theta_sphr = np.arccos(mec_data['R_sc'][:, 2] / r_sphr)
 
@@ -87,7 +88,7 @@ def remove_corot_efield(edi_data, mec_data):
 
     # Corotation Electric Field
     #  - taken from data_manipulation.remove_corot_efield
-    #  - Azimuthal component in the equatorial plane (GSE)
+    #  - Radial component in the equatorial plane (GSE)
     E_corot = (-92100 * R_E / r_cyl ** 2)
     E_corot = np.stack([E_corot, np.zeros(len(E_corot)), np.zeros(len(E_corot))], axis=1)
     E_corot = xr.DataArray(E_corot,
@@ -107,6 +108,23 @@ def remove_corot_efield(edi_data, mec_data):
                                dims=['time', 'E_index'],
                                coords={'time': E_corot['time'],
                                        'E_index': ['x', 'y', 'z']})
+
+    mec = mec_data.where(mec_data['L'] <= 5, drop=True)
+    E_test = E_gse_corot.where(mec_data['L'] <= 5, drop=True)
+    r_sphr_2 = np.linalg.norm(mec['R_sc'], ord=2,
+                            axis=mec['R_sc'].get_axis_num('R_sc_index'))
+    theta_sphr_2 = np.arccos(mec['R_sc'][:, 2] / r_sphr_2)
+    r_cyl_2 = r_sphr_2 * np.sin(theta_sphr_2)
+
+    file = open('E_corot_values_w_rcyl.txt', 'a')
+    if len(mec['time'].values) != 0:
+        date = str(mec['time'].values[0]) + '\n'
+        file.write(date)
+    for counter in range(len(mec['L'].values)):
+        output = 'MEC L: ' + str(mec['L'].values[counter]) + ' Magnitude of E_corot: ' + str(np.sqrt(np.sum(E_test.values[counter] ** 2))) + ' r_x: ' + str(
+            mec['R_sc'].values[counter][0]) + ' r_y: ' + str(mec['R_sc'].values[counter][1]) + ' r_z: ' + str(
+            mec['R_sc'].values[counter][2]) + ' r_cyl: ' + str(r_cyl_2.values[counter]) + '\n'
+        file.write(output)
 
     minus_spacecraft_egse = edi_data['E_GSE'].copy(deep=True)
 
@@ -197,6 +215,26 @@ def slice_dst_data(full_data, ti, te):
     return time_list, dst_list
 
 
+def slice_symh_data(full_data, ti, te):
+    time_list = np.array([])
+    symh_list = np.array([])
+
+    for counter in range(0, len(full_data)):
+        one_day = str.split(full_data.iloc[counter][0])
+        one_day.pop(0)
+        something = one_day.pop(0)
+        date = dt.datetime(2000+int(something[5:7]), int(something[7:9]), int(something[9:11]), hour=int(something[12:14]))
+        if date >= ti and date < te: # I think I don't need the = here for date < te
+            all_dates = datetime_range(date, date+dt.timedelta(hours=1), dt.timedelta(minutes=1))
+            one_day.pop(-1)
+            time_list = np.append(time_list, [all_dates])
+            symh_list = np.append(symh_list, [one_day])
+        elif date >= te:
+            break
+
+    return time_list, symh_list
+
+
 def datetime_range(start, end, delta):
     datetimes = []
     current = start
@@ -205,37 +243,6 @@ def datetime_range(start, end, delta):
         current += delta
     return datetimes
 
-
-def expand_5min_kp(time, kp):
-    # This is for a very specific case, where you are given times at the very beginning of a day, and you only want 5 minute intervals. All other cases should be run through expand_kp
-
-    # Expanding the kp values is easy, as np.repeat does this for us.
-    # Eg: np.repeat([1,2,3],3) = [1,1,1,2,2,2,3,3,3]
-    new_kp = np.repeat(kp, 36)
-
-    new_times = np.array([])
-
-    # Iterate through every time that is given
-    for a_time in time:
-        # Put the first time value into the xarray. This corresponds to the start of the kp window
-        new_times = np.append(new_times, [a_time - dt.timedelta(hours=1.5)])
-
-        # There are 36 5-minute intervals in the 3 hour window Kp covers. We have the time in the middle of the 3 hour window.
-        # Here all the values are created (other than the start of the window, done above) by incrementally getting 5 minutes apart on both sides of the middle value. This is done 18 times
-        # However we must make an exception when the counter is 0, because otherwise it will put the middle of the window twice
-        for counter in range(18):
-            if counter == 0:
-                new_time = a_time
-                new_times = np.append(new_times, [new_time])
-            else:
-                new_time_plus = a_time + counter * dt.timedelta(minutes=5)
-                new_time_minus = a_time - counter * dt.timedelta(minutes=5)
-                new_times = np.append(new_times, [new_time_plus, new_time_minus])
-
-    # The datetime objects we want are created, but out of order. Put them in order
-    new_times = np.sort(new_times, axis=0)
-
-    return new_times, new_kp
 
 def expand_kp(kp_times, kp, time_to_expand_to):
     # Note that this function is capable of doing the same thing as expand_5min, and more.

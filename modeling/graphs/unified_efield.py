@@ -216,7 +216,7 @@ def train_NN(args):
 def linear_regression(train_filename_list, values_to_use):
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
-        one_file_inputs, one_file_targets = get_inputs(total_data, use_values=values_to_use, torch=False)
+        one_file_inputs, one_file_targets = get_inputs(total_data, use_values=values_to_use, usetorch=False)
         if train_filename == train_filename_list[0]:
             total_inputs = one_file_inputs
             total_targets = one_file_targets
@@ -224,17 +224,24 @@ def linear_regression(train_filename_list, values_to_use):
             total_inputs = np.concat((total_inputs, one_file_inputs))
             total_targets = np.concat((total_targets, one_file_targets))
 
-    LR = LinearRegression()
-    LR.fit(total_inputs, total_targets)
+    kf = KFold(n_splits=5, shuffle=True, random_state=142)
+    test_error = np.zeros([3])
+    for train_index, test_index in kf.split(total_inputs):
+        train_inputs, test_inputs = total_inputs[train_index], total_inputs[test_index]
+        train_targets, test_targets = total_targets[train_index], total_targets[test_index]
 
-    length = len(total_inputs[0])
+        # is this resetting the training? I can't tell
+        LR = LinearRegression()
+        LR.fit(train_inputs, train_targets)
 
-    test_error=np.zeros([3])
-    for counter in range(len(total_inputs)):
-        pred = LR.predict(total_inputs[counter].reshape(-1, length))[0]
-        error = np.sqrt(pred**2 + total_targets[counter]**2)
-        test_error += error
-    test_error /= len(total_inputs)
+        length = len(test_inputs[0])
+
+        for counter in range(len(test_inputs)):
+            pred = LR.predict(test_inputs[counter].reshape(-1, length))[0]
+            error = np.sqrt(pred**2 + test_targets[counter]**2)
+            test_error += error
+
+    test_error /= len(total_targets)
 
     print("Done!")
 

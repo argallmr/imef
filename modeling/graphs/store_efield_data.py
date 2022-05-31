@@ -192,8 +192,12 @@ def get_binned_statistics(data, mec_data, L_and_MLT):
     # binnum returns the bin number given to each data point in the dataset
     # values is not called when using statistic='count', but is still required.
     # Since E_GSE is in edi_data whether or not the user wants polar, it will work either way.
-    count, x_edge, y_edge, binnum = binned_statistic_2d(x=mec_data['L'],
-                                                        y=mec_data['MLT'],
+
+    L = np.sqrt(mec_data['R_sc'][:,0]**2 + mec_data['R_sc'][:,1]**2)/6371.2
+    MLT = (12/np.pi)*np.arctan2(mec_data['R_sc'][:, 1], mec_data['R_sc'][:, 0])
+    # I think this is right. Double check w matt tho. X and Y were mec['L'] and mec['MLT'] before, but the L in mec is wrong and the MLT might be
+    count, x_edge, y_edge, binnum = binned_statistic_2d(x=L,
+                                                        y=MLT,
                                                         values=data['E_GSE'].loc[:, 'Ex'],
                                                         statistic='count',
                                                         bins=[L_and_MLT.nL, L_and_MLT.nMLT],
