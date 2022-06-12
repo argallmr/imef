@@ -3,6 +3,7 @@ import xarray as xr
 import datetime as dt
 import scipy.optimize as optimize
 from scipy.stats import binned_statistic
+import pandas as pd
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
@@ -107,8 +108,9 @@ def remove_corot_efield(edi_data, mec_data):
     E_gse_corot = xr.DataArray(np.stack([Ex_corot, Ey_corot, Ez_corot], axis=1),
                                dims=['time', 'E_index'],
                                coords={'time': E_corot['time'],
-                                       'E_index': ['x', 'y', 'z']})
+                                       'E_index': ['Ex', 'Ey', 'Ez']})
 
+    # For the txt file
     mec = mec_data.where(mec_data['L'] <= 5, drop=True)
     E_test = E_gse_corot.where(mec_data['L'] <= 5, drop=True)
     r_sphr_2 = np.linalg.norm(mec['R_sc'], ord=2,
@@ -123,15 +125,14 @@ def remove_corot_efield(edi_data, mec_data):
     for counter in range(len(mec['L'].values)):
         output = 'MEC L: ' + str(mec['L'].values[counter]) + ' Magnitude of E_corot: ' + str(np.sqrt(np.sum(E_test.values[counter] ** 2))) + ' r_x: ' + str(
             mec['R_sc'].values[counter][0]) + ' r_y: ' + str(mec['R_sc'].values[counter][1]) + ' r_z: ' + str(
-            mec['R_sc'].values[counter][2]) + ' r_cyl: ' + str(r_cyl_2.values[counter]) + '\n'
+            mec['R_sc'].values[counter][2]) + ' r_cyl: ' + str(r_cyl_2.values[counter]) + 'r_cyl/MEC L: ' + str(r_cyl_2.values[counter]/mec['L'].values[counter]) + '\n'
         file.write(output)
+
+    # end of file stuff
 
     minus_spacecraft_egse = edi_data['E_GSE'].copy(deep=True)
 
-    # For some reason edi_data['E_GSE'] = edi_data['E_GSE'] - E_gse_corot results in all nan's. strange. This works tho
-    edi_data['E_GSE'][:, 0] = edi_data['E_GSE'][:, 0] - E_gse_corot[:, 0]
-    edi_data['E_GSE'][:, 1] = edi_data['E_GSE'][:, 1] - E_gse_corot[:, 1]
-    edi_data['E_GSE'][:, 2] = edi_data['E_GSE'][:, 2] - E_gse_corot[:, 2]
+    edi_data['E_GSE'] = edi_data['E_GSE'] - E_gse_corot
 
     edi_data['no_spacecraft_E_GSE'] = minus_spacecraft_egse
 
@@ -215,7 +216,7 @@ def slice_dst_data(full_data, ti, te):
     return time_list, dst_list
 
 
-def slice_symh_data(full_data, ti, te):
+def slice_symh_data(full_data, ti, te, binned=False):
     time_list = np.array([])
     symh_list = np.array([])
 
@@ -225,10 +226,20 @@ def slice_symh_data(full_data, ti, te):
         something = one_day.pop(0)
         date = dt.datetime(2000+int(something[5:7]), int(something[7:9]), int(something[9:11]), hour=int(something[12:14]))
         if date >= ti and date < te: # I think I don't need the = here for date < te
-            all_dates = datetime_range(date, date+dt.timedelta(hours=1), dt.timedelta(minutes=1))
-            one_day.pop(-1)
-            time_list = np.append(time_list, [all_dates])
-            symh_list = np.append(symh_list, [one_day])
+            if binned==True:
+                all_dates = datetime_range(date, date + dt.timedelta(hours=1), dt.timedelta(minutes=5))
+                one_day.pop(-1)
+                one_day_5min=np.array([])
+                for counter2 in range(12):
+                    bin5min = np.sum(np.array(one_day[5*counter2:5*counter2+5]).astype(float))/5
+                    one_day_5min=np.append(one_day_5min, [bin5min])
+                time_list = np.append(time_list, [all_dates])
+                symh_list = np.append(symh_list, [one_day_5min])
+            else:
+                all_dates = datetime_range(date, date+dt.timedelta(hours=1), dt.timedelta(minutes=1))
+                one_day.pop(-1)
+                time_list = np.append(time_list, [all_dates])
+                symh_list = np.append(symh_list, [one_day])
         elif date >= te:
             break
 
@@ -336,18 +347,13 @@ def create_timestamps(data, ti, te):
     te = te.timestamp() - 14400
 
     # This is to account for daylight savings
-    # lazy fix: check to see if ti-te is the right amount of time. If yes, move on. If no, fix by changing te to what it should be
-    # This forces the input time to be specifically 1 day of data, otherwise this number doesn't work.
-    # Though maybe the 86400 could be generalized using te-ti before converting to timestamp. Possible change there
-    # Though UTC is definitely something to be done, time permitting (i guess it is in UTC. need to figure out at some point)
-    # This will only work for exactly 1 day of data being downloaded. It will be fine for sample and store_edi data,
-    # however if running a big download that goes through a daylight savings day, there will be an issue
-
-    if ti_datetime+dt.timedelta(days=1)==te_datetime:
-        if te-ti > 86400:
-            te-=3600
-        elif te-ti < 86400:
-            te+=3600
+    # This requires the days inputted to be even. Since the user cannot input hour/min/secs in store_edi/sample, it should be fine
+    if dt.datetime.utcfromtimestamp(ti).hour==22:
+        ti += 3600
+        te += 3600
+    elif dt.datetime.utcfromtimestamp(ti).hour==0:
+        ti -= 3600
+        te -= 3600
 
     # Create the array where the unix timestamp values go
     # The timestamp values are needed so we can bin the values with binned_statistic
@@ -686,9 +692,9 @@ def calculate_potential_2(imef_data, name_of_variable, guess):
     def grad_loss(v, A, E, C, gamma):
         return 2 * np.transpose(A) @ A @ v - 2*np.transpose(A)@E + 2*gamma*np.transpose(C)@C@v
 
-    # Solve the inverse problem according to the equation in Matsui 2004 and Korth 2002
+    # Solve the inverse problem
     V = optimize.minimize(loss, guess, args=(A, E, C, gamma), method="CG", jac=grad_loss)
     optimized = V.x
-    # V = V.reshape(nL + 1, nMLT)
+    V = optimized.reshape(nL + 1, nMLT)
 
     return V

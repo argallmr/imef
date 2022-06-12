@@ -15,7 +15,6 @@ from download_data import get_fgm_data, get_edi_data, get_mec_data, get_kp_data,
 
 # TO DO: Modify this, sample_data, and download_data to use the DownloadParameters container instead of using individual arguments
 # Driving parameter and extra data work together. They don't. It gets separated but not actually ordered to bin. Maybe this is fixed?
-# Some of the functions I have made (mainly binning) will not work when given part of a day. So probably just restrict the user from implementing partial days so we don't have that problem
 # Maybe introduce a -std argument, so that if we actually want the standard deviation it can be done, otherwise don't do it. It really clutters the final product
 
 # Note: just removed the option to do hours/mins/seconds. probs no need, and it causes problems
@@ -76,9 +75,9 @@ def prep_data(edi_data, fgm_data, mec_data, polar, extra_data, driving_parameter
 
         # A dictionary containing the keys for extra data that is available, and the maximum value that the index will measure
         # As more options are created they will be added into here.
-        # Also not 100% on the max IEF value. It kinda corresponds to Matsui but not
+        # IEF Does not work as intended. Since the maximum is not a set value, it's not gonna work. Will have to redo handle_driving_parameter to get this to work
         x = {'Kp': [get_kp_data(ti, te, edi_data['time'].values), 9],
-             'IEF': [get_IEF_data(ti, te, edi_data['time'].values), 3]} #Does not work as intended. Since the maximum is not a set value, it's kinda difficult to work like this
+             'IEF': [get_IEF_data(ti, te, edi_data['time'].values), 3]}
 
         # A 2D list that contains the data to be binned, along with the name that it will be given when binned.
 
@@ -194,14 +193,20 @@ def get_binned_statistics(data, mec_data, L_and_MLT):
     # Since E_GSE is in edi_data whether or not the user wants polar, it will work either way.
 
     L = np.sqrt(mec_data['R_sc'][:,0]**2 + mec_data['R_sc'][:,1]**2)/6371.2
-    MLT = (12/np.pi)*np.arctan2(mec_data['R_sc'][:, 1], mec_data['R_sc'][:, 0])
-    # I think this is right. Double check w matt tho. X and Y were mec['L'] and mec['MLT'] before, but the L in mec is wrong and the MLT might be
+    MLT = (12/np.pi)*(np.arctan2(mec_data['R_sc'][:, 1], mec_data['R_sc'][:, 0])+np.pi)
+    # L=[3,4,6,7]
+    # MLT=[-1,-1,0,0]
+    # ok = np.arange(5,len(L)+5)
     count, x_edge, y_edge, binnum = binned_statistic_2d(x=L,
                                                         y=MLT,
                                                         values=data['E_GSE'].loc[:, 'Ex'],
                                                         statistic='count',
                                                         bins=[L_and_MLT.nL, L_and_MLT.nMLT],
                                                         range=[L_and_MLT.L_range, L_and_MLT.MLT_range])
+
+    # print(L)
+    # print(MLT)
+    # print(binnum)
 
     return count, x_edge, y_edge, binnum
 

@@ -633,6 +633,10 @@ def get_symh_data(ti, te, expand=None, binned=False):
     if expand is not None and binned == True:
         raise ValueError("Expand and binned cannot both be used")
 
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
     fname_list = []
     increment = ti.year
 
@@ -643,9 +647,10 @@ def get_symh_data(ti, te, expand=None, binned=False):
 
     full_symh_data = read_txt_files(fname_list, local_location='data/symh/', mode='symh')
 
-    time, symh = dm.slice_symh_data(full_symh_data, ti, te)
+    time, symh = dm.slice_symh_data(full_symh_data, ti, te, binned=binned)
 
-    time = np.array(time) + dt.timedelta(seconds=30)
+    if binned==False:
+        time = np.array(time) + dt.timedelta(seconds=30)
 
     if expand is not None:
         symh = dm.expand_kp(time, symh, expand)
@@ -659,9 +664,5 @@ def get_symh_data(ti, te, expand=None, binned=False):
 
     # Put the kp data into the dataset
     symh_data['SYMH'] = xr.DataArray(symh, dims=['time'], coords={'time': time})
-
-    # It would be much more efficient to not do this, and instead do the binning in slice_symh_data, and take 5 values in a row, avg them, and make 5 min times there.
-    if binned == True:
-        symh_data = dm.bin_5min(symh_data, ['SYMH'], [''], ti, te)
 
     return symh_data

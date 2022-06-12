@@ -90,7 +90,7 @@ def main():
             mec_data = dd.get_mec_data(sc, mode, level, ti, te, binned=True)
 
             # Read EDP data. The way it is written is causes an error sometimes. More Detailed in the download_data file
-            # edp_data = dd.get_edp_data(sc, level, ti, te, binned=True)
+            edp_data = dd.get_edp_data(sc, level, ti, te, binned=True)
 
             # Read OMNI data
             # There is no standard deviation for omni, since it is an outside package that does the binning itself. I don't think there is a way to get it with a command from the package
@@ -106,13 +106,10 @@ def main():
             # Also already in 5 minute increments (derived from the omni data)
             ief_data = dd.get_IEF_data(ti, te)
 
-            # Read SYM-H data
-            symh_data = dd.get_symh_data(start, end, binned=True)
-
             # There are times where x, y, and z are copied, but the corresponding values are not, resulting in 6 coordinates
             # This throws an error when trying to computer the cross product in remove_spacecraft_efield, so raise an error here if this happens
             # Only seems to happen on one day, 12/18/16
-            if len(mec_data["V_sc_index"]) != 3:
+            if len(mec_data["V_sc_index"]) != 3 or len(mec_data["R_sc_index"]) != 3:
                 raise ValueError("There should be 3 coordinates in V_sc_index")
 
         except Exception as ex:
@@ -130,8 +127,7 @@ def main():
             edi_data = remove_corot_efield(edi_data, mec_data)
 
             # Combine all of the data into one dataset
-            # one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data, ief_data])
-            one_day_data = xr.merge([edi_data, fgm_data, mec_data, omni_data, dis_data, des_data, ief_data, symh_data])
+            one_day_data = xr.merge([edi_data, fgm_data, mec_data, edp_data, omni_data, dis_data, des_data, ief_data])
 
             # By binning the data, these coordinates become incorrect. They also don't seem to be needed, so just remove them
             one_day_data = one_day_data.drop_vars("Epoch_plus_var")
@@ -153,11 +149,15 @@ def main():
     # and my computer can read all the data in at once, unlike most of the others in the loop
     kp_data = dd.get_kp_data(start, end, complete_data['time'].values)
 
+    # Read dst data
     dst_data = dd.get_dst_data(start, end, complete_data['time'].values)
 
-    # Merge the kp and dst data with the rest of the data
-    complete_data = xr.merge([complete_data, kp_data, dst_data])
+    # Read SYM-H data
+    symh_data = dd.get_symh_data(start, end, binned=True)
 
+    # Merge the kp and dst data with the rest of the data
+    complete_data = xr.merge([complete_data, kp_data, dst_data, symh_data])
+    # complete_data = xr.merge([complete_data, kp_data, dst_data])
     # Output the data to a file with the name given by the user
     complete_data.to_netcdf(filename)
 
