@@ -50,11 +50,11 @@ class NeuralNetwork_3(nn.Module):
             # Last number of last layer is 3 (Efield in x, y, and z directions)
             # The other numbers are arbitrary. Mess around with them and see what happens
             nn.Linear(layers[0], layers[1]),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(layers[1], layers[2]),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(layers[2], layers[3]),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(layers[3], layers[4]),
         )
 

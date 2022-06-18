@@ -47,6 +47,10 @@ def main():
     if polar==True:
         V = dm.calculate_potential(imef_data, variable_name)
         np.savetxt(new_filename+".csv", V, delimiter=",")
+        x=np.random.randint(10, size=(len(V), len(V[0])))
+        V2 = dm.calculate_potential_2(imef_data, variable_name, V+10**-3*x)
+        print(V-V2)
+        np.savetxt(new_filename + "2.csv", V2, delimiter=",")
 
     # plotting (if the user wants)
     if no_show==False and polar==True:

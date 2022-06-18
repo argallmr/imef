@@ -3,7 +3,7 @@ import gif
 from predict_unified_efield import predict_and_plot
 import torch
 import argparse
-from unified_efield import NeuralNetwork
+import Neural_Networks as NN
 import datetime as dt
 import matplotlib.pyplot as plt
 import plot_nc_data as xrplot
@@ -159,8 +159,30 @@ def main():
 
     model_filename = args.model_filename + '.pth'
 
-    model = NeuralNetwork()
-    model.load_state_dict(torch.load(model_filename))
+    layers = model_filename.split('$')[0].split('-')
+    values_to_use = model_filename.split('$')[1].split('-')
+
+    # change this to be 183 when symh is involved
+    if values_to_use[0] == 'All':
+        NN_layout = np.array([123])
+    else:
+        NN_layout = np.array([60 * len(values_to_use) + 3])
+
+    NN_layout = np.append(NN_layout, np.array(layers))
+    NN_layout = np.append(NN_layout, np.array([3])).astype(int)
+    number_of_layers = len(NN_layout) - 2
+
+    NN_dict = {1: NN.NeuralNetwork_1,
+               2: NN.NeuralNetwork_2,
+               3: NN.NeuralNetwork_3}
+
+    try:
+        NeuralNetwork = NN_dict[number_of_layers]
+    except:
+        raise KeyError("The amount of layers inputted is not available")
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = NeuralNetwork(NN_layout).to(device)
 
     start_time = dt.datetime.strptime(args.start_time, '%Y-%m-%dT%H:%M:%S')
     end_time = dt.datetime.strptime(args.end_time, '%Y-%m-%dT%H:%M:%S')

@@ -1,5 +1,6 @@
 import torch
-from unified_efield import NeuralNetwork, get_inputs
+from unified_efield import get_inputs
+import Neural_Networks as NN
 import download_data as dd
 import datetime as dt
 import xarray as xr
@@ -19,10 +20,6 @@ def draw_earth(ax):
 
 
 def predict_and_plot(model, time=None, data=None, plot = True, return_pred = False):
-    # we need the data from the 5 hours before the time to the time given
-    # But the binned argument requires 1 day of data. so I do this instead
-    ti = time-dt.timedelta(hours=5)
-    te=time+dt.timedelta(minutes=5)
 
     # can input either the data you have that corresponds to the time you want to predict (aka the 5 hours of data, with the last input being the time you want to predict)
     # or you can input the time and the data will be downloaded for you
@@ -30,6 +27,11 @@ def predict_and_plot(model, time=None, data=None, plot = True, return_pred = Fal
     if data is not None:
         complete_data = data
     elif time is not None:
+        # we need the data from the 5 hours before the time to the time given
+        # But the binned argument requires 1 day of data. so I do this instead
+        ti = time - dt.timedelta(hours=5)
+        te = time + dt.timedelta(minutes=5)
+
         mec_data = dd.get_mec_data('mms1', 'srvy', 'l2', ti, te, binned=True)
         kp_data = dd.get_kp_data(ti, te, expand=mec_data['time'].values)
         dst_data = dd.get_dst_data(ti, te, expand=mec_data['time'].values)
@@ -138,7 +140,31 @@ def main():
 
     model_filename = args.model_filename+'.pth'
 
-    model = NeuralNetwork()
+    layers = model_filename.split('$')[0].split('-')
+    values_to_use = model_filename.split('$')[1].split('-')
+
+    # change this to be 183 when symh is involved
+    if values_to_use[0] == 'All':
+        NN_layout = np.array([123])
+    else:
+        NN_layout = np.array([60 * len(values_to_use) + 3])
+
+    NN_layout = np.append(NN_layout, np.array(layers))
+    NN_layout = np.append(NN_layout, np.array([3])).astype(int)
+    number_of_layers = len(NN_layout) - 2
+
+    NN_dict = {1: NN.NeuralNetwork_1,
+               2: NN.NeuralNetwork_2,
+               3: NN.NeuralNetwork_3}
+
+    try:
+        NeuralNetwork = NN_dict[number_of_layers]
+    except:
+        raise KeyError("The amount of layers inputted is not available")
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = NeuralNetwork(NN_layout).to(device)
+
     model.load_state_dict(torch.load(model_filename))
 
     time = dt.datetime.strptime(args.time_to_predict, '%Y-%m-%dT%H:%M:%S')
