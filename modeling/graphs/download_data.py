@@ -666,3 +666,32 @@ def get_symh_data(ti, te, expand=None, binned=False):
     symh_data['SYMH'] = xr.DataArray(symh, dims=['time'], coords={'time': time})
 
     return symh_data
+
+
+def get_aspoc_data(sc, mode, level, start_date, end_date, binned=False):
+    aspoc_data = util.load_data(sc=sc, instr='aspoc', mode=mode, level=level,
+                                start_date=start_date, end_date=end_date)
+
+    data = (aspoc_data[[sc + '_aspoc_status', sc + '_aspoc_var', sc + '_aspoc_ionc']]
+            .rename({'Epoch': 'time',
+                     sc + '_aspoc_var': 'dt_minus',
+                     sc + '_aspoc_status': 'aspoc_status',
+                     sc + '_aspoc_lbl': 'aspoc_lbl',
+                     sc + '_aspoc_ionc': 'ion_current'})
+            )
+
+    # Set the sample interval as datetimes
+    # Note that the times are at the center of the bins
+    data['dt_minus'] = data['dt_minus'].astype('timedelta64[ns]')
+
+    if binned==True:
+        # doesn't actually bin, since on-off stuff doesn't really make sense when binned. So just remove the data points that aren't at a 5 minute interval
+        indices = []
+        for counter in range(len(data['time'])):
+            string_of_datetime = str(data['time'].values[counter])
+            if int(string_of_datetime[17:19])%5==0 and counter !=len(data['time'])-1:
+                indices.append(counter)
+
+    data = data.isel(time=indices)
+
+    return data
