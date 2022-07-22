@@ -1,23 +1,325 @@
-from pymms.data import edi, util, fgm, fpi, edp
-import numpy as np
-import xarray as xr
-from heliopy.data import omni
-import datetime as dt
-import shutil
-import urllib.request as request
-from contextlib import closing
-import pandas as pd
 import os
-import data_manipulation as dm
+import datetime as dt
+import numpy as np
+import pandas as pd
+import xarray as xr
+import shutil
+from urllib import request
+from contextlib import closing
 import requests
 
+from heliopy.data import omni
+import imef.data.data_manipulation as dm
+from pymms.data import edi, util, fgm, fpi, edp
+from pymms.sdc import mrmms_sdc_api as mms_api
+
+# Kp and DSCOVR data
+import util as dd_util
+
 np.set_printoptions(threshold=np.inf)
+
+
+def get_data(sc, instr, mode, level, t0, t1, dt_out=None):
+    if dt_out is not None:
+        if dt_out < dt.timedelta(seconds=5):
+            raise ValueError('dt_out must be >= 5s.')
+        extrapolate = False
+        repeat = False
+
+    # EDI
+    if instr == 'edi':
+        data = get_edi_data(sc, mode, level, t0, t1)
+
+        # Rename the time delta variable
+        dt_plus_vname = '_'.join((sc, 'edi', 't', 'delta', 'plus', mode, level))
+        dt_minus_vname = '_'.join((sc, 'edi', 't', 'delta', 'minus', mode, level))
+        data = data.rename({dt_plus_vname: 'dt_plus',
+                            dt_minus_vname: 'dt_minus'})
+
+        # Set the time delta variable
+        data['dt_plus'] = np.timedelta64(np.int(5e9), 'ns')
+        data['dt_minus'] = np.timedelta64(np.int(0), 'ns')
+
+    # FGM
+    elif instr == 'fgm':
+        data = get_fgm_data(sc, mode, t0, t1)
+
+        # Move FGM time stamps to the beginning of the sample interval
+        dt_fgm = (1e6 * data['time_delta']).astype('timedelta64[us]')
+        data = data.drop('time_delta')
+        data = data.assign_coords({'dt_plus': 2 * dt_fgm,
+                                   'dt_minus': 0 * dt_fgm})
+
+        # Time has to be assigned after dt_plus and dt_minus because those
+        # are time dependent and must have their times be reset, too
+        data = data.assign_coords({'time': data['time'] - dt_fgm})
+
+    # MEC
+    elif instr == 'mec':
+        data = get_mec_data(sc, mode, level, t0, t1)
+
+        data = (data.drop(['R_sc_index', 'V_sc_index'])
+                .assign_coords({'cart': ['x', 'y', 'z']})
+                .rename({'R_sc_index': 'cart',
+                         'V_sc_index': 'cart'})
+                )
+
+        # Parse the time resolution from the attributes (e.g., '30 s')
+        dt_mec = data.attrs['Time_resolution'].split(' ')
+        dt_mec = np.timedelta64(np.int(dt_mec[0]), dt_mec[1])
+
+        # Add time resolution
+        data = data.assign_coords({'dt_plus': dt_mec,
+                                   'dt_minus': np.timedelta64(0, 's')})
+
+        # If resampling, extrapolating is OK
+        extrapolate = True
+
+    # DIS
+    elif instr == 'dis':
+        data = get_dis_data(sc, mode, level, t0, t1)
+
+        data = data.rename({'Epoch_minus_var': 'dt_minus',
+                            'Epoch_plus_var': 'dt_plus'})
+        data.assign_coords({'time': data['time'] - data['dt_minus']})
+        data['dt_plus'] += data['dt_minus']
+        data['dt_minus'] = np.timedelta64(0, 's')
+
+    # DES
+    elif instr == 'des':
+        data = get_des_data(sc, mode, level, t0, t1)
+
+        data = data.rename({'Epoch_minus_var': 'dt_minus',
+                            'Epoch_plus_var': 'dt_plus'})
+        data.assign_coords({'time': data['time'] - data['dt_minus']})
+        data['dt_plus'] += data['dt_minus']
+        data['dt_minus'] = np.timedelta64(0, 's')
+
+    # EDP
+    elif instr == 'edp':
+        edp_data_slow = edp.load_data(sc, 'slow', level, start_date=t0, end_date=t1)
+        edp_data_fast = edp.load_data(sc, 'fast', level, start_date=t0, end_date=t1)
+
+        # Rename the indices so that the fast and slow data can be combined
+        e_slow_labl_vname = '_'.join((sc, instr, 'label1', 'slow', level))
+        e_fast_labl_vname = '_'.join((sc, instr, 'label1', 'fast', level))
+        edp_data_slow = edp_data_slow.rename({e_slow_labl_vname: 'E_index'})
+        edp_data_fast = edp_data_fast.rename({e_fast_labl_vname: 'E_index'})
+
+        # Expand the time delta to have the same length as time
+        dt_slow_vname = '_'.join((sc, instr, 'deltap', 'slow', level))
+        dt_slow = (np.repeat(edp_data_slow[dt_slow_vname]
+                             .rename({dt_slow_vname: 'time'}),
+                             len(edp_data_slow['time']))
+                   .assign_coords({'time': edp_data_slow['time']})
+                   )
+
+        # Expand the time delta to have the same length as time
+        dt_fast_vname = '_'.join((sc, instr, 'deltap', 'fast', level))
+        dt_fast = (np.repeat(edp_data_fast[dt_fast_vname]
+                             .rename({dt_fast_vname: 'time'}),
+                             len(edp_data_fast['time']))
+                   .assign_coords({'time': edp_data_fast['time']})
+                   )
+
+        # Combine slow and fast variables
+        e_edp = xr.concat([edp_data_slow['E_GSE'], edp_data_fast['E_GSE']],
+                          dim='time').sortby('time')
+        dt_edp = (xr.concat([dt_slow, dt_fast], dim='time')
+                  .sortby('time')
+                  .astype('timedelta64['
+                          + edp_data_slow[dt_slow_vname].attrs['units']
+                          + ']')
+                  )
+
+        # Combine the data into a dataset
+        data = xr.Dataset({'E_GSE': e_edp,
+                           'dt_plus': dt_edp,
+                           'dt_minus': dt_edp})
+
+        # Adjust the time stamps
+        #   - dt_minus needs to be assigned because both
+        #     dt_plus and dt_minus are views of dt_edp
+        data = data.assign_coords({'time': data['time'] - data['dt_minus']})
+        data['dt_plus'] *= 2
+        data = data.assign({'dt_minus': (('time',), np.repeat(np.timedelta64(0, 's'), len(dt_edp)))})
+
+    # SCPOT
+    elif instr == 'scpot':
+        data = get_scpot_data(sc, level, t0, t1)
+
+    else:
+        raise ValueError('"{0}" is not a valid instrument. Choose from '
+                         '(edi, fgm, mec, dis, des, edp, scpot)')
+
+    # Resample in time
+    data = resample(data, t0, t1, dt_out,
+                    extrapolate=extrapolate, repeat=repeat)
+
+    return data
+
+
+def get_orbit_number(sc, t0, t1, dt_out=None):
+    '''
+    Get the orbit numbers associated with a given time range.
+
+    Parameters
+    ----------
+    sc : str
+        Spacecraft identifier
+    t0, t1 : `datetime.datetime`
+        Start and end time of the data interval
+    dt_out : `datetime.timedelta`
+        Sample interval if the data is to be resampled
+
+    Returns
+    -------
+    orbit_data : `xarray.DataArray`
+        Orbit numbers
+    '''
+
+    # Get the orbit information
+    #   - Time interval must encompass entire orbit
+    #   - Put some padding on either side (orbits have been <~ 3 days [2022])
+    orbits = mms_api.mission_events('orbit',
+                                    t0 - dt.timedelta(days=5),
+                                    t1 + dt.timedelta(days=5),
+                                    sc=sc)
+
+    # Orbit interval relative to time stamp
+    dt_plus = [o1 - o0 for o0, o1 in zip(orbits['tstart'], orbits['tend'])]
+    dt_minus = np.repeat(np.timedelta64(0, 's'), len(orbits['start_orbit']))
+
+    # Orbit number
+    orb_num = xr.DataArray(orbits['start_orbit'],
+                           dims=('time',),
+                           coords={'time': orbits['tstart'],
+                                   'dt_plus': ('time', dt_plus),
+                                   'dt_minus': ('time', dt_minus)})
+
+    # Resample
+    if dt_out is not None:
+        orbit_data = resample(orb_num, t0, t1, dt_out, repeat=True)
+
+    return orbit_data
+
+
+def get_kp_data_v2(t0, t1, dt_out=None):
+    data = []
+
+    # Time intervals
+    kp_util = dd_util.Kp_Downloader()
+    intervals = kp_util.intervals(t0, t1)
+
+    # Load the data
+    for interval in intervals:
+        data.append(kp_util.load_file(interval))
+
+    # Combine the data into a single dataset
+    kp_data = xr.concat(data, dim='time').sortby('time')
+
+    # Resample
+    if dt_out is not None:
+        kp_data = resample(kp_data['Kp'], t0, t1, dt_out, repeat=True)
+
+    return kp_data
+
+
+def get_scpot_data(sc, level, t0, t1):
+    scpot_slow = edp.load_scpot(sc=sc, mode='slow', level=level,
+                                start_date=t0, end_date=t1)
+    scpot_fast = edp.load_scpot(sc=sc, mode='fast', level=level,
+                                start_date=t0, end_date=t1)
+
+    # Expand the time delta to have the same length as time
+    dt_slow_vname = '_'.join((sc, 'edp', 'deltap', 'slow', level))
+    dt_slow = (np.repeat(scpot_slow[dt_slow_vname]
+                         .rename({dt_slow_vname: 'time'}),
+                         len(scpot_slow['time']))
+               .assign_coords({'time': scpot_slow['time']})
+               )
+
+    # Expand the time delta to have the same length as time
+    dt_fast_vname = '_'.join((sc, 'edp', 'deltap', 'fast', level))
+    dt_fast = (np.repeat(scpot_fast[dt_fast_vname]
+                         .rename({dt_fast_vname: 'time'}),
+                         len(scpot_fast['time']))
+               .assign_coords({'time': scpot_fast['time']})
+               )
+
+    # Combine slow and fast variables
+    Vsc = (xr.concat([scpot_slow['Vsc'], scpot_fast['Vsc']], dim='time')
+           .sortby('time')
+           )
+    dt_scpot = (xr.concat([dt_slow, dt_fast], dim='time')
+                .sortby('time')
+                .astype('timedelta64['
+                        + scpot_slow[dt_slow_vname].attrs['units']
+                        + ']')
+                )
+
+    # Adjust the time stamps
+    #   - dt_minus needs to be assigned because both
+    #     dt_plus and dt_minus are views of dt_edp
+    Vsc = Vsc.assign_coords({'time': Vsc['time'] - dt_scpot,
+                             'dt_plus': ('time', 2 * dt_scpot),
+                             'dt_minus': ('time', 0 * dt_scpot)})
+
+    return Vsc
+
+
+def get_dscovr_data():
+    raise NotImplementedError
+
+
+def get_dst_data():
+    raise NotImplementedError
+
+
+def get_omni_data():
+    raise NotImplementedError
+
+
+def resample(data, t0, t1, dt_out, extrapolate=False, repeat=False):
+    # Generate a set of timestamps
+    t_out = dm.generate_time_stamps(np.datetime64(t0),
+                                    np.datetime64(t1),
+                                    np.timedelta64(dt_out))
+
+    if (data['dt_plus'] == np.timedelta64(dt_out)).all():
+        pass
+
+    # Upsample
+    #   - Less than two samples per target sampling interval
+    elif (data['dt_plus'] > (0.5 * np.timedelta64(dt_out))).any():
+
+        # Repeat values
+        if repeat:
+            data = dm.expand_times(data, t_out[:-1])
+
+        # Interpolate
+        else:
+            data = dm.interp_over_gaps(data, t_out[:-1],
+                                       extrapolate=extrapolate)
+
+    # Downsample
+    #   - Two or more samples per target sampling interval
+    elif (data['dt_plus'] <= (0.5 * np.timedelta64(dt_out))).any():
+        if isinstance(data, xr.DataArray):
+            func = dm.binned_avg
+        else:
+            func = dm.binned_avg_ds
+
+        # Simple average
+        data = func(data, t_out)
+
+    return data.assign_coords({'dt_plus': dt_out,
+                               'dt_minus': np.timedelta64(0, 's')})
 
 
 def download_ftp_files(remote_location, local_location, fname_list):
     '''
     Transfer files from FTP location to local location
-
     Parameters
     ----------
     remote_location : str
@@ -58,35 +360,31 @@ def download_html_data(remote_location_list, local_location_list):
 def read_txt_files(fname_list, local_location=None, mode='Kp'):
     '''
     Reads data into a Pandas dataframe
-
     Parameters
     ----------
     fname_list : list of str
         Files containing Kp index
     local_location : str
         Path to where files are stored, if it isn't included in fname_list
-
     Returns
     -------
     full_data : `pandas.DataFrame`
         Kp data
     '''
-    if mode=='Kp':
-        header=29
-        footer=0
-    elif mode=='symh':
-        header=0
-        footer=0
+    if mode == 'Kp':
+        header = 29
+        footer = 0
 
     # Combine all of the needed files into one dataframe
     for fname in fname_list:
-        if mode=='Dst' and int(fname[13:17]) == 2021 and int(fname[18:20]) >= 8 or mode=='Dst' and int(fname[13:17]) >=2022:
-            header=34
-            footer=55
-        elif mode=='Dst' and int(fname[13:17]) >= 2020:
-            header=34
-            footer=40
-        elif mode=='Dst' and int(fname[13:17]) < 2020:
+        if mode == 'Dst' and int(fname[13:17]) == 2021 and int(fname[18:20]) >= 8 or mode == 'Dst' and int(
+                fname[13:17]) >= 2022:
+            header = 34
+            footer = 55
+        elif mode == 'Dst' and int(fname[13:17]) >= 2020:
+            header = 34
+            footer = 40
+        elif mode == 'Dst' and int(fname[13:17]) < 2020:
             header = 28
             footer = 41
 
@@ -95,13 +393,6 @@ def read_txt_files(fname_list, local_location=None, mode='Kp'):
             oneofthem = pd.read_table(local_location + fname, header=header, skipfooter=footer)
         else:
             oneofthem = pd.read_table(fname, header=header, skipfooter=footer)
-
-        if mode=='symh':
-            # it turns out that the first 3/4 of the file contains stuff that isn't sym-H. So get rid of it
-            oneofthem = oneofthem.iloc[int((3/4)*len(oneofthem)):].reset_index(drop=True)
-
-            # rename the column so that concat will work right. each file reads the first line into the header, so each file has a diff header unless this is done
-            oneofthem = oneofthem.rename(columns={oneofthem.columns[0]: '1hoursymh'})
 
         if fname == fname_list[0]:
             # If this is the first time going through the loop, designate the created dataframe as where all the data will go
@@ -117,7 +408,6 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
     '''
     Load EDI data. Time tags of EDI data are moved to the beginning of the
     accumulation interval to facilitate binning of other data products.
-
     Parameters
     ----------
     sc : str
@@ -130,7 +420,6 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
         Start and end of the data interval
     binned : bool
         Bin/average data into 5-minute intervals
-
     Returns
     -------
     edi_data : `xarray.Dataset`
@@ -147,12 +436,14 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
         # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
         # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
         if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
+            te = te + dt.timedelta(
+                minutes=(5 - ((te - ti) / dt.timedelta(minutes=5) - int((te - ti) / dt.timedelta(minutes=5))) * 5))
 
     tm_vname = '_'.join((sc, 'edi', 't', 'delta', 'minus', mode, level))
 
     # Get EDI data
-    edi_data = edi.load_data(sc, mode, level, optdesc='efield', start_date=ti, end_date=te)
+    # edi_data = edi.load_data(sc, mode, level, optdesc='efield', start_date=ti, end_date=te)
+    edi_data = edi.load_efield(sc=sc, mode=mode, level=level, start_date=ti, end_date=te)
 
     # Timestamps begin on 0's and 5's and span 5 seconds. The timestamp is at
     # the weighted mean of all beam hits. To get the beginning of the timestamp,
@@ -186,7 +477,6 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
 def get_fgm_data(sc, mode, ti, te, binned=False):
     '''
     Load FGM data.
-
     Parameters
     ----------
     sc : str
@@ -199,7 +489,6 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
         Start and end of the data interval
     binned : bool
         Bin/average data into 5-minute intervals
-
     Returns
     -------
     fgm_data : `xarray.Dataset`
@@ -216,7 +505,8 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
         # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
         # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
         if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
+            te = te + dt.timedelta(
+                minutes=(5 - ((te - ti) / dt.timedelta(minutes=5) - int((te - ti) / dt.timedelta(minutes=5))) * 5))
 
     # Get FGM data
     fgm_data = fgm.load_data(sc=sc, mode=mode, start_date=ti, end_date=te)
@@ -230,7 +520,6 @@ def get_fgm_data(sc, mode, ti, te, binned=False):
 def get_mec_data(sc, mode, level, ti, te, binned=False):
     '''
     Load MEC data.
-
     Parameters
     ----------
     sc : str
@@ -243,7 +532,6 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
         Start and end of the data interval
     binned : bool
         Bin/average data into 5-minute intervals
-
     Returns
     -------
     mec_data : `xarray.Dataset`
@@ -260,7 +548,8 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
         # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
         # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
         if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
+            te = te + dt.timedelta(
+                minutes=(5 - ((te - ti) / dt.timedelta(minutes=5) - int((te - ti) / dt.timedelta(minutes=5))) * 5))
 
     # The names of the variables that will be downloaded
     r_vname = '_'.join((sc, 'mec', 'r', 'gse'))
@@ -296,7 +585,6 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
 def get_edp_data(sc, level, ti, te, binned=False):
     '''
     Load EDP data.
-
     Parameters
     ----------
     sc : str
@@ -307,7 +595,6 @@ def get_edp_data(sc, level, ti, te, binned=False):
         Start and end of the data interval
     binned : bool
         Bin/average data into 5-minute intervals
-
     Returns
     -------
     edp_data : `xarray.Dataset`
@@ -324,7 +611,8 @@ def get_edp_data(sc, level, ti, te, binned=False):
         # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
         # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
         if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
+            te = te + dt.timedelta(
+                minutes=(5 - ((te - ti) / dt.timedelta(minutes=5) - int((te - ti) / dt.timedelta(minutes=5))) * 5))
 
     edp_data_fast = edp.load_data(sc, 'fast', level, start_date=ti, end_date=te)
     edp_data_slow = edp.load_data(sc, 'slow', level, start_date=ti, end_date=te)
@@ -344,7 +632,7 @@ def get_edp_data(sc, level, ti, te, binned=False):
     # So should I be merging as EDP_FAST and EDP_SLOW separately or no? I'm not sure
     # Right now it is being combined into 1 variable, but that causes an error on certain days (eg. 1/18/16)
     # Combine fast and slow data
-    edp_data = xr.merge([edp_data_fast, edp_data_slow], compat='override')
+    edp_data = xr.merge([edp_data_fast, edp_data_slow])
 
     # Reorganize the data to sort by time
     edp_data = edp_data.sortby('time')
@@ -362,7 +650,7 @@ def get_omni_data(ti, te):
     # Download the omni data as a timeseries object, with data points every 5 minutes
     # We can choose between 1 min, 5 min, and 1 hour intervals
     # Subtracting the microsecond is so the data will include the midnight data variable. Otherwise we are missing the first piece of data
-    full_omni_data = omni.hro2_5min(ti-dt.timedelta(microseconds=1), te)
+    full_omni_data = omni.hro2_5min(ti - dt.timedelta(microseconds=1), te)
 
     # Convert the time series object to a pandas dataframe
     full_omni_data = full_omni_data.to_dataframe()
@@ -402,7 +690,8 @@ def get_dis_data(sc, mode, level, ti, te, binned=False):
         # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
         # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
         if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
+            te = te + dt.timedelta(
+                minutes=(5 - ((te - ti) / dt.timedelta(minutes=5) - int((te - ti) / dt.timedelta(minutes=5))) * 5))
 
     # Download dis_data
     full_dis_data = fpi.load_moms(sc, mode, level, 'dis-moms', ti, te)
@@ -432,7 +721,8 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
         # the bin_5min program requires a multiple of 5 minutes from start to end (so no data is left off)
         # check if the time range given is a multiple of 5 minutes, and if it isn't, add onto the end whatever time is needed to make it a 5 minute interval
         if ((te - ti) % dt.timedelta(minutes=5)) / dt.timedelta(seconds=1) != 0:
-            te=te+dt.timedelta(minutes=(5-((te-ti)/dt.timedelta(minutes=5) - int((te-ti)/dt.timedelta(minutes=5)))*5))
+            te = te + dt.timedelta(
+                minutes=(5 - ((te - ti) / dt.timedelta(minutes=5) - int((te - ti) / dt.timedelta(minutes=5))) * 5))
 
     # Download des_data
     full_des_data = fpi.load_moms(sc, mode, level, 'des-moms', ti, te)
@@ -450,6 +740,7 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
         des_data = dm.bin_5min(des_data, ['V_DES'], ['V'], ti, te)
 
     return des_data
+
 
 # If you are having problems with this function, delete all Kp files in data/kp and run again. This may fix it
 def get_kp_data(ti, te, expand=[None]):
@@ -512,20 +803,20 @@ def get_IEF_data(ti, te, expand=[None]):
         V = np.append(V, [start])
 
     # Can't really verify that these are right. Just gotta hope I guess (especially w theta). I think it worked correctly
-    By = omni_data['B_OMNI'][:,1].values
-    Bz = omni_data['B_OMNI'][:,2].values
-    theta = np.arctan(By/Bz)
+    By = omni_data['B_OMNI'][:, 1].values
+    Bz = omni_data['B_OMNI'][:, 2].values
+    theta = np.arctan(By / Bz)
 
     # IEF = V*sqrt(B_y^2 + B_z^2)sin^2(\theta / 2) -> V is the velocity of the plasma, should be in OMNI
     # theta = tan^−1(B_Y/B_Z)
     # The /1000 is from dimensional analysis, to keep units in mV/m
-    IEF = V*np.sqrt((By**2)+(Bz**2))*(np.sin(theta/2)**2) / 1000
+    IEF = V * np.sqrt((By ** 2) + (Bz ** 2)) * (np.sin(theta / 2) ** 2) / 1000
 
     if expand[0] != None:
         IEF = dm.expand_kp(omni_data['time'].values, IEF.astype('str'), expand)
-        time=expand
+        time = expand
     else:
-        time=omni_data['time'].values
+        time = omni_data['time'].values
 
     IEF = IEF.astype('float64')
 
@@ -537,11 +828,9 @@ def get_IEF_data(ti, te, expand=[None]):
 
     return IEF_data
 
-# If you are having problems with this function, delete all dst files in data/dst and run again. This may fix it
-def get_dst_data(ti, te, expand=None):
-    # Theres a possibility that I don't have to split up between realtime and provisional. The page doesn't have links for real time before 2020, but they may still exist
-    # If it's worth it, maybe change all of them to use realtime instead
 
+# If you are having problems with this function, delete all Kp files in data/dst and run again. This may fix it
+def get_dst_data(ti, te, expand=None):
     # I use two different types of data: since this website only has real-time data from 2020 onwards, and provisional data from 2015 to 2019, I have to use two separate links
 
     # Location of the files on the server. the month/year is part of the link, so the before and after is broken apart
@@ -570,14 +859,18 @@ def get_dst_data(ti, te, expand=None):
             remote_location_start = real_time_remote_location_start
         while increment_month <= 12:
             if increment_month < 10:
-                remote_location_list.append(remote_location_start + str(increment_year) + '0' + str(increment_month) + remote_location_end)
-                local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + '0' + str(increment_month) + file_name_extension)
+                remote_location_list.append(
+                    remote_location_start + str(increment_year) + '0' + str(increment_month) + remote_location_end)
+                local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + '0' + str(
+                    increment_month) + file_name_extension)
             else:
-                remote_location_list.append(remote_location_start + str(increment_year) + str(increment_month) + remote_location_end)
-                local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + str(increment_month) + file_name_extension)
-            increment_month+=1
+                remote_location_list.append(
+                    remote_location_start + str(increment_year) + str(increment_month) + remote_location_end)
+                local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + str(
+                    increment_month) + file_name_extension)
+            increment_month += 1
         increment_month = 1
-        increment_year+=1
+        increment_year += 1
 
     # gets all the data in the year equal to the end of the desired times
     while increment_month <= te.month:
@@ -586,15 +879,19 @@ def get_dst_data(ti, te, expand=None):
         else:
             remote_location_start = real_time_remote_location_start
         if increment_month < 10:
-            remote_location_list.append(remote_location_start + str(increment_year) + '0' + str(increment_month) + remote_location_end)
-            local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + '0' + str(increment_month) + file_name_extension)
+            remote_location_list.append(
+                remote_location_start + str(increment_year) + '0' + str(increment_month) + remote_location_end)
+            local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + '0' + str(
+                increment_month) + file_name_extension)
         else:
-            remote_location_list.append(remote_location_start + str(increment_year) + str(increment_month) + remote_location_end)
-            local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + str(increment_month) + file_name_extension)
+            remote_location_list.append(
+                remote_location_start + str(increment_year) + str(increment_month) + remote_location_end)
+            local_location_list.append(local_location + file_name_template + str(increment_year) + '_' + str(
+                increment_month) + file_name_extension)
         increment_month += 1
 
     # download the data
-    download_html_data(remote_location_list,local_location_list)
+    download_html_data(remote_location_list, local_location_list)
 
     # read the data into python
     full_data = read_txt_files(local_location_list, mode='Dst')
@@ -610,7 +907,7 @@ def get_dst_data(ti, te, expand=None):
         dst = dm.expand_kp(time, dst, expand)
         time = expand
 
-    dst = dst.astype('float64') # dst is an integer value, but to keep consistent with kp ill use a float
+    dst = dst.astype('float64')  # dst is an integer value, but to keep consistent with kp ill use a float
 
     # I have the option to put in UT here. Not going to rn but could at a later point
     # Create an empty dataset at the time values that we made above
@@ -620,78 +917,3 @@ def get_dst_data(ti, te, expand=None):
     dst_data['DST'] = xr.DataArray(dst, dims=['time'], coords={'time': time})
 
     return dst_data
-
-
-# Note that this works fine, but takes up more memory than the other geomagnetic indices, since it is calculated 60x more than dst.
-def get_symh_data(ti, te, expand=None, binned=False):
-    # So I couldn't find any way to actually download the data from here, since the data is hidden behind a submit button
-    # So in order for this to work you will have to download the data files manually
-    # The website for this is https://wdc.kugi.kyoto-u.ac.jp/aeasy/index.html
-    # It only has to be done once, but the most recent file will have to be redownloaded if you want to use the most recent data
-    # The files go in data/symh. Download all the data for each year, and name them symh_YYYY.
-
-    if expand is not None and binned == True:
-        raise ValueError("Expand and binned cannot both be used")
-
-    if binned == True:
-        ti = ti - dt.timedelta(minutes=2.5)
-        te = te - dt.timedelta(minutes=2.5)
-
-    fname_list = []
-    increment = ti.year
-
-    # Making the names of all the required files
-    while increment <= te.year:
-        fname_list.append('symh_' + str(increment)+'.dat')
-        increment += 1
-
-    full_symh_data = read_txt_files(fname_list, local_location='data/symh/', mode='symh')
-
-    time, symh = dm.slice_symh_data(full_symh_data, ti, te, binned=binned)
-
-    if binned==False:
-        time = np.array(time) + dt.timedelta(seconds=30)
-
-    if expand is not None:
-        symh = dm.expand_kp(time, symh, expand)
-        time = expand
-
-    symh = symh.astype('float64')  # symh is an integer value, but to keep consistent with kp ill use a float
-
-    # I have the option to put in UT here. Not going to rn but could at a later point
-    # Create an empty dataset at the time values that we made above
-    symh_data = xr.Dataset(coords={'time': time})
-
-    # Put the kp data into the dataset
-    symh_data['SYMH'] = xr.DataArray(symh, dims=['time'], coords={'time': time})
-
-    return symh_data
-
-
-def get_aspoc_data(sc, mode, level, start_date, end_date, binned=False):
-    aspoc_data = util.load_data(sc=sc, instr='aspoc', mode=mode, level=level,
-                                start_date=start_date, end_date=end_date)
-
-    data = (aspoc_data[[sc + '_aspoc_status', sc + '_aspoc_var', sc + '_aspoc_ionc']]
-            .rename({'Epoch': 'time',
-                     sc + '_aspoc_var': 'dt_minus',
-                     sc + '_aspoc_status': 'aspoc_status',
-                     sc + '_aspoc_lbl': 'aspoc_lbl',
-                     sc + '_aspoc_ionc': 'ion_current'})
-            )
-
-    # Set the sample interval as datetimes
-    # Note that the times are at the center of the bins
-    data['dt_minus'] = data['dt_minus'].astype('timedelta64[ns]')
-
-    if binned==True:
-        # doesn't actually bin, since on-off stuff doesn't really make sense when binned. So just remove the data points that aren't at a 5 minute interval
-        indices = []
-        for counter in range(len(data['time'])):
-            string_of_datetime = str(data['time'].values[counter])
-            if int(string_of_datetime[17:19])%5==0 and counter !=len(data['time'])-1:
-                indices.append(counter)
-
-    data = data.isel(time=indices)
-
-    return data

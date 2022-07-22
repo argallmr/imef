@@ -6,63 +6,11 @@ import argparse
 import xarray as xr
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
-import Neural_Networks as NN
+from imef.efield.model_creation import Neural_Networks as NN
+import imef.data.data_manipulation as dm
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
-
-
-def get_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=['Kp'], usetorch=True):
-    # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
-
-    if 'Kp' in use_values:
-        Kp_data = imef_data['Kp']
-    if 'Dst' in use_values:
-        Dst_data = imef_data['DST']
-    if 'Symh' in use_values:
-        Symh_data = imef_data['SYMH']
-
-    if remove_nan == True:
-        imef_data = imef_data.where(np.isnan(imef_data['E_EDI'][:, 0]) == False, drop=True)
-
-    # Note that the first bits of data cannot be used, because the first 60 times dont have Kp values and whatnot. Will become negligible when done on a large amount of data
-    for counter in range(60, len(imef_data['time'].values)):
-        new_data_line = []
-        if 'Kp' in use_values:
-            Kp_index_data = Kp_data.values[counter - 60:counter].tolist()
-            new_data_line += Kp_index_data
-        if 'Dst' in use_values:
-            Dst_index_data = Dst_data.values[counter - 60:counter].tolist()
-            new_data_line += Dst_index_data
-        if 'Symh' in use_values:
-            Symh_index_data = Symh_data.values[counter - 60:counter].tolist()
-            new_data_line += Symh_index_data
-
-        # Along with the indices, we include 3 extra values to train on: The distance from the Earth (L), cos(MLT), and sin(MLT)
-        # the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter] / np.timedelta64(1, 'h')), np.sin(np.pi / 12 * imef_data['MLT'].values[counter] / np.timedelta64(1, 'h'))]).tolist()
-        the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter]), np.sin(np.pi / 12 * imef_data['MLT'].values[counter])]).tolist()
-        new_data_line += the_rest_of_the_data
-
-        if counter == 60:
-            design_matrix_array = [new_data_line]
-        else:
-            design_matrix_array.append(new_data_line)
-
-    if usetorch==True:
-        design_matrix_array = torch.tensor(design_matrix_array)
-    else:
-        design_matrix_array = np.array(design_matrix_array)
-
-    if get_target_data == True:
-        # The convection electric field is the total electric field (E_EDI), minus the spacecraft electric field (E_con), minus the corotation electric field (E_cor)
-        efield_data = imef_data['E_EDI'].values[60:, :] - imef_data['E_con'].values[60:, :] - imef_data['E_cor'].values[60:, :]
-
-        if usetorch==True:
-            efield_data = torch.from_numpy(efield_data)
-
-        return design_matrix_array, efield_data
-    else:
-        return design_matrix_array
 
 
 def train_loop(dataloader, model, loss_fn, optimizer, device):
@@ -125,7 +73,7 @@ def train_NN(args):
     # For every file given by the user, open it, gather the necessary inputs that will train the neural network, and create one object containing all of that data
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
-        one_file_inputs, one_file_targets = get_inputs(total_data, use_values=values_to_use)
+        one_file_inputs, one_file_targets = dm.get_NN_inputs(total_data, use_values=values_to_use)
         if train_filename == train_filename_list[0]:
             total_inputs = one_file_inputs
             total_targets = one_file_targets
@@ -215,6 +163,16 @@ def train_NN(args):
                     final_test_error+=test_error
 
         final_test_error = final_test_error / (10 * kf.get_n_splits(total_inputs))
+
+        print("Done!")
+        # Output the properties and the test results of the NN to a file called test_errors.txt
+        put_error_here = open('test_errors.txt', 'a')
+        output = string + str(
+            ' || ExMSE: ' + str(final_test_error[0]) + ' || EyMSE: ' + str(final_test_error[1]) + ' || EzMSE: '
+            + str(final_test_error[2]) + ' || Total E MSE: ' + str(np.sum(final_test_error)) + '\n')
+        put_error_here.write(output)
+
+        print(output)
     else:
         model = NeuralNetwork(NN_layout).to(device)
 
@@ -228,15 +186,14 @@ def train_NN(args):
             print(f"Epoch {t + 1}\n-------------------------------")
             train_loop(train_dataloader, model, loss_fn, optimizer, device)
 
-    print("Done!")
+        print("Done!")
 
-    # Output the properties and the test results of the NN to a file called test_errors.txt
-    put_error_here = open('test_errors.txt', 'a')
-    output = string + str(' || ExMSE: '+ str(final_test_error[0])+ ' || EyMSE: '+str(final_test_error[1])+ ' || EzMSE: '
-                 +str(final_test_error[2])+ ' || Total E MSE: '+ str(np.sum(final_test_error))+'\n')
-    put_error_here.write(output)
-
-    print(output)
+    # create a file name that contains the important components of the model
+    layer_string = str(NN_layout[1])+'-'
+    for counter in range(2, len(NN_layout)-2):
+        layer_string = layer_string + str(NN_layout[counter])+'-'
+    layer_string+=str(NN_layout[len(NN_layout)-2])
+    model_name = layer_string+'$'+values_string+'$'+model_name
 
     # save the model
     torch.save(model.state_dict(), model_name)
@@ -246,7 +203,7 @@ def linear_regression(train_filename_list, values_to_use, kfold):
     # For every file given by the user, open it, gather the necessary inputs that will train the neural network, and create one object containing all of that data
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
-        one_file_inputs, one_file_targets = get_inputs(total_data, use_values=values_to_use, usetorch=False)
+        one_file_inputs, one_file_targets = dm.get_NN_inputs(total_data, use_values=values_to_use, usetorch=False)
         if train_filename == train_filename_list[0]:
             total_inputs = one_file_inputs
             total_targets = one_file_targets
@@ -272,26 +229,27 @@ def linear_regression(train_filename_list, values_to_use, kfold):
                 pred = LR.predict(test_inputs[counter].reshape(-1, length))[0]
                 error = np.sqrt(pred**2 + test_targets[counter]**2)
                 test_error += error
+
+        print("Done!")
+
+        values_string = ''
+        for value in values_to_use:
+            values_string += value
+
+        string = str('Inputs: ' + values_string + ' || Layers: Linear Regression')
+        # Output the properties and the test results of the model
+        put_error_here = open('test_errors.txt', 'a')
+        output = string + str(' || ExMSE: ' + str(test_error[0]) + ' || EyMSE: ' + str(test_error[1]) + ' || EzMSE: '
+                              + str(test_error[2]) + ' || Total E MSE: ' + str(np.sum(test_error)) + '\n')
+        put_error_here.write(output)
+
+        print(output)
     else:
         LR = LinearRegression()
         LR.fit(total_inputs, total_targets)
+        print("Done!")
 
     test_error /= len(total_targets)
-
-    print("Done!")
-
-    values_string = ''
-    for value in values_to_use:
-        values_string += value
-
-    string = str('Inputs: ' + values_string + ' || Layers: Linear Regression')
-    # Output the properties and the test results of the model
-    put_error_here = open('test_errors.txt', 'a')
-    output = string + str(' || ExMSE: ' + str(test_error[0]) + ' || EyMSE: ' + str(test_error[1]) + ' || EzMSE: '
-            + str(test_error[2]) + ' || Total E MSE: ' + str(np.sum(test_error)) + '\n')
-    put_error_here.write(output)
-
-    print(output)
 
 def main():
     parser = argparse.ArgumentParser(

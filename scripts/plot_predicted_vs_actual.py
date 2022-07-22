@@ -4,15 +4,13 @@ import argparse
 import torch
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
-import Neural_Networks as NN
-from unified_efield import get_inputs
+import imef.efield.model_creation.Neural_Networks as NN
+from imef.data.data_manipulation import get_NN_inputs
 from sklearn.linear_model import LinearRegression
-from predict_unified_efield import predict_and_plot
-import datetime as dt
 
 def pred_w_NN(dip, data, model):
     # would definitely be more efficient to slice data first, then put into get_inputs, but where is being a pain (it has the error that sample_data has been getting, I can't figure it out)
-    all_test_inputs = get_inputs(data, remove_nan=False, get_target_data=False)
+    all_test_inputs = get_NN_inputs(data, remove_nan=False, get_target_data=False)
     test_inputs = all_test_inputs[dip[0]:dip[1]]
     model.eval()
     x = test_inputs
@@ -24,7 +22,7 @@ def pred_w_NN(dip, data, model):
 
 def pred_w_linear_regression(dip, data):
     values_to_use = ['All']
-    total_inputs, total_targets = get_inputs(data, use_values=values_to_use, usetorch=False)
+    total_inputs, total_targets = get_NN_inputs(data, use_values=values_to_use, usetorch=False)
     train_inputs = np.concatenate((total_inputs[0:dip[0]], total_inputs[dip[1]:len(total_inputs)-1]))
     train_targets = np.concatenate((total_targets[0:dip[0]], total_targets[dip[1]:len(total_targets)-1]))
     test_inputs = total_inputs[dip[0]:dip[1]]
@@ -184,7 +182,11 @@ def main():
 
     # data=data.where(np.isnan(data['E_GSE'][:,0]) ==False, drop=True)
 
-    dips=get_x_dips(data, x=5)
+    # add something to calculate convective efield and put it into data here
+
+    print(list(data.keys()))
+
+    dips=get_x_dips(data)
 
     plot_dips(dips, data, model)
 

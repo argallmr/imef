@@ -13,10 +13,6 @@ np.set_printoptions(threshold=np.inf)
 # Important note: the L/MLT coordinate system has positive x facing left and positive y facing down, the opposite of the typical x-y system.
 # There will be a large number of -1*(data) in these functions as a result
 
-# TODO: I should probably make a choice for consistency: either make the person input the variable, make it an optional argument, or don't implement anything else
-#  Probably remove the plotting from store_efield_data
-#  I might have to generalize some things to make it not Kp only (specifically if I start doing IEF stuff)
-
 def draw_earth(ax):
     '''
     A handy function for drawing the Earth in a set of Polar Axes
@@ -64,7 +60,7 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', count=True, log_c
     ax1 = axes[0, 0]
 
     # Note that Ex and Ey are multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    ax1.quiver(phi, r, -1 * Ex, -1 * Ey, scale=14)
+    ax1.quiver(phi, r, -1 * Ex, -1 * Ey, scale=5)
     ax1.set_xlabel("Electric Field")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax1.set_theta_direction(1)

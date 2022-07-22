@@ -1,9 +1,9 @@
 import numpy as np
 import gif
-from predict_unified_efield import predict_and_plot
+from imef.data.database import predict_efield_and_potential
 import torch
 import argparse
-import Neural_Networks as NN
+import imef.efield.model_creation.Neural_Networks as NN
 import datetime as dt
 import matplotlib.pyplot as plt
 
@@ -197,7 +197,7 @@ def main():
 
     while ti <= end_time:
         # could be made slightly more accurate since predict and plot keeps downloading stuff over and over. Maybe download ti to te outside of predict and plot and use data arg?
-        imef_data, potential = predict_and_plot(model, ti, return_pred=True, plot=False)
+        imef_data, potential = predict_efield_and_potential(model, ti)
         # this is for getting 1 good colorplot to use for every frame of the gif. Since the min and max V value is set to +-25 in plot_potential_for_gif, the colormap is the same in each frame
         # note this doesn't need to be run every time. I could run the first iteration of predict_and_plot outside the loop, run this once, then do while loop, but not really that big a deal
         im = get_good_colorplot(imef_data, potential)
