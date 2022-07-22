@@ -1,11 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="Created predict_unified_efield, which takes a given time and a trained pytorch NN and predicts the electric field and the electric potential, and creates some plots of the resulting values.&#10;&#10;Updated unified_efield, such that it actually works. It now requires a file from sample_data that has downloaded the electric field, Kp, and Dst&#10;&#10;Enhanced bin_5min such that it now takes any amount of time and creates 5 minute bins as long as the inputted time range is a multiple of 5 minutes. This is not a problem if any of the get_xxx_functions is used, as they automatically add whatever time is needed onto the end of the time range such that the time range is a multiple of 5 minutes&#10;&#10;Fixed read_txt_files so that it works for all ranges of Dst time ranges&#10;&#10;Updated Comments">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="Created the IMEF_main branch, which will hold both the electric field and electric potential work, along with the magnetic field models and particle tracing work. This push gives the electric field and electric potential code.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/calculate_potential.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/create_potential_gif.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/creating_Kp_plots.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/creating_edi_maps.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/data_manipulation.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/predict_unified_efield.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/9_10_15_to_9_16_2016.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/TorchDataset.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/average_2d_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/average_3d_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/binned.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/csv/bins_loc.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/csv/mlt_loc.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/csv/r_loc.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/data.nc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/data_manipulation.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/download_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/download_data_izzak.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/format_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/imef.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/mean_std.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/modeling.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/output.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/polar.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/polar_bin.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/reference/potential.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/sample_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/storage_objects.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/store_efield_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs/unified_efield.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs_merged/Neural_Networks.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs_merged/plot_binned_potential.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/graphs_merged/predict_unified_efield.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/chart_regression.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/data.nc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/data.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/dummy_data.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/format_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/linear_regression.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/logistic_regression.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/linear_regression/train_data.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/output/Figure_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/output/Figure_1XY.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/output/lin_confusion_dummy.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/output/lin_dummy.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modeling/output/log_confusion_dummy.png" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,7 +75,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="argall" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -103,11 +151,12 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/modeling/graphs" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/scripts" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Izzak\PycharmProjects\IMEF\scripts" />
       <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs" />
       <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs\Obsolete" />
     </key>
@@ -118,7 +167,7 @@
       <recent name="C:\Users\Izzak\PycharmProjects\IMEF\modeling\graphs" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.test">
+  <component name="RunManager" selected="Python.creating_edi_maps">
     <configuration name="3.7" type="PythonConfigurationType" factoryName="Python">
       <module name="IMEF" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -140,7 +189,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="predict_unified_efield" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="create_potential_gif" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="IMEF" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -148,12 +197,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/predict_unified_efield.py" />
-      <option name="PARAMETERS" value="test_model 2021-06-09T00:00:00" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/create_potential_gif.py" />
+      <option name="PARAMETERS" value="50-20-10$Kp$test 2021-01-01T00:00:00 2021-01-02T00:00:00 2 testinggif" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -161,7 +210,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="sample_data" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="creating_Kp_plots" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="IMEF" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -169,53 +218,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/sample_data.py" />
-      <option name="PARAMETERS" value="mms1 srvy l2 2022-03-02 2022-03-04 bad" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="IMEF" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/test.py" />
-      <option name="PARAMETERS" value="2_year_training_sample_data.nc" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="test2" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="IMEF" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/test2.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/creating_Kp_plots.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -224,7 +231,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="unified_efield" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="creating_edi_maps" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="IMEF" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -232,12 +239,54 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modeling/graphs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modeling/graphs/unified_efield.py" />
-      <option name="PARAMETERS" value="090115_033022_mms1_sample_data test_model" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/creating_edi_maps.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="plot_predicted_vs_actual" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/plot_predicted_vs_actual.py" />
+      <option name="PARAMETERS" value="mms1_imef_srvy_l2_5sec_20150915000000_20210101000000 50-20-10$Kp$test" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="predict_unified_efield" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IMEF" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/predict_unified_efield.py" />
+      <option name="PARAMETERS" value="50-20-10$Kp$test 2021-01-01T00:00:00" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -247,19 +296,19 @@
     </configuration>
     <list>
       <item itemvalue="Python.3.7" />
-      <item itemvalue="Python.test" />
-      <item itemvalue="Python.test2" />
-      <item itemvalue="Python.sample_data" />
-      <item itemvalue="Python.unified_efield" />
       <item itemvalue="Python.predict_unified_efield" />
+      <item itemvalue="Python.plot_predicted_vs_actual" />
+      <item itemvalue="Python.create_potential_gif" />
+      <item itemvalue="Python.creating_Kp_plots" />
+      <item itemvalue="Python.creating_edi_maps" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.test" />
+        <item itemvalue="Python.creating_edi_maps" />
+        <item itemvalue="Python.creating_Kp_plots" />
+        <item itemvalue="Python.create_potential_gif" />
+        <item itemvalue="Python.plot_predicted_vs_actual" />
         <item itemvalue="Python.predict_unified_efield" />
-        <item itemvalue="Python.unified_efield" />
-        <item itemvalue="Python.sample_data" />
-        <item itemvalue="Python.test2" />
       </list>
     </recent_temporary>
   </component>
@@ -274,13 +323,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1616604644044</updated>
-    </task>
-    <task id="LOCAL-00017" summary="Moved remove_spacecraft_efield and remove_corot_efield from store_efield_data.py to data_manipulation.py">
-      <created>1625759763856</created>
-      <option name="number" value="00017" />
-      <option name="presentableId" value="LOCAL-00017" />
-      <option name="project" value="LOCAL" />
-      <updated>1625759763856</updated>
     </task>
     <task id="LOCAL-00018" summary="Created get_kp_data, which downloads kp index data (or reads from the local machine if it exists), within a certain time range, designated by the user&#10;&#10;Added/Updated comments">
       <created>1625866913432</created>
@@ -618,7 +660,14 @@
       <option name="project" value="LOCAL" />
       <updated>1650056780673</updated>
     </task>
-    <option name="localTasksCounter" value="66" />
+    <task id="LOCAL-00066" summary="Created the IMEF_main branch, which will hold both the electric field and electric potential work, along with the magnetic field models and particle tracing work. This push gives the electric field and electric potential code.">
+      <created>1658521184984</created>
+      <option name="number" value="00066" />
+      <option name="presentableId" value="LOCAL-00066" />
+      <option name="project" value="LOCAL" />
+      <updated>1658521184984</updated>
+    </task>
+    <option name="localTasksCounter" value="67" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -668,7 +717,6 @@
     <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Updated Comments" />
     <MESSAGE value="Implemented the driving parameter argument, which will take the data points that want to be binned and separate them by a desired parameter. Note that this is not entirely implemented, as it will not separate the extra data, only the electric field data.&#10;&#10;Updated comments" />
     <MESSAGE value="Updated store_efield_data to utilize the driving_parameter argument correctly with different parameters, and (hopefully) have it separate the extra data when that argument is not empty.&#10;&#10;Updated comments" />
     <MESSAGE value="Corrected the driving parameter binning, as the values were getting exponentially smaller the longer the program was run. The output also includes a count value for each separated variable when using a driving parameter&#10;&#10;Updated Comments" />
@@ -693,7 +741,8 @@
     <MESSAGE value="removed the ability to input hours/minutes/seconds in sample_data and store_efield_data, since putting anything other than 00:00:00 can potentially cause problems. New format is YYYY-MM-DD (e.g. 2015-09-10)&#10;&#10;Created get_dst_data, which gets all the dst data over a desired time range, and bins the data into 5 minute intervals if the user wants. Known issue: if the directory data/dst/ does not already exist, it will break. simply make the folder to fix this&#10;&#10;Increased functionality of read_txt_files to be used with dst as well as kp&#10;&#10;added get_dst_data to sample_data.py&#10;&#10;Updated Comments" />
     <MESSAGE value="Created predict_unified_efield, which takes a given time and a trained pytorch NN and predicts the electric field and the electric potential, and creates some plots of the resulting values.&#10;&#10;Uploading test_model_to_beat.pth, which is a NN created by unified_efield. As more data points are gathered and the NN is improved, this file will be updated to reflect that.&#10;&#10;Uploading 090115_033022_mm1_sample_data.nc, which is a file created by sample data, run from September 1st, 2015 to March 30, 2022, which contains electric field data from the mms1 probe.&#10;&#10;Updated unified_efield, such that it actually works. It now requires a file from sample_data that has downloaded the electric field, Kp, and Dst&#10;&#10;Enhanced bin_5min such that it now takes any amount of time and creates 5 minute bins as long as the inputted time range is a multiple of 5 minutes. This is not a problem if any of the get_xxx_functions is used, as they automatically add whatever time is needed onto the end of the time range such that the time range is a multiple of 5 minutes&#10;&#10;Fixed read_txt_files so that it works for all ranges of Dst time ranges&#10;&#10;Updated Comments" />
     <MESSAGE value="Created predict_unified_efield, which takes a given time and a trained pytorch NN and predicts the electric field and the electric potential, and creates some plots of the resulting values.&#10;&#10;Updated unified_efield, such that it actually works. It now requires a file from sample_data that has downloaded the electric field, Kp, and Dst&#10;&#10;Enhanced bin_5min such that it now takes any amount of time and creates 5 minute bins as long as the inputted time range is a multiple of 5 minutes. This is not a problem if any of the get_xxx_functions is used, as they automatically add whatever time is needed onto the end of the time range such that the time range is a multiple of 5 minutes&#10;&#10;Fixed read_txt_files so that it works for all ranges of Dst time ranges&#10;&#10;Updated Comments" />
-    <option name="LAST_COMMIT_MESSAGE" value="Created predict_unified_efield, which takes a given time and a trained pytorch NN and predicts the electric field and the electric potential, and creates some plots of the resulting values.&#10;&#10;Updated unified_efield, such that it actually works. It now requires a file from sample_data that has downloaded the electric field, Kp, and Dst&#10;&#10;Enhanced bin_5min such that it now takes any amount of time and creates 5 minute bins as long as the inputted time range is a multiple of 5 minutes. This is not a problem if any of the get_xxx_functions is used, as they automatically add whatever time is needed onto the end of the time range such that the time range is a multiple of 5 minutes&#10;&#10;Fixed read_txt_files so that it works for all ranges of Dst time ranges&#10;&#10;Updated Comments" />
+    <MESSAGE value="Created the IMEF_main branch, which will hold both the electric field and electric potential work, along with the magnetic field models and particle tracing work. This push gives the electric field and electric potential code." />
+    <option name="LAST_COMMIT_MESSAGE" value="Created the IMEF_main branch, which will hold both the electric field and electric potential work, along with the magnetic field models and particle tracing work. This push gives the electric field and electric potential code." />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/modeling/linear_regression/dummy_data.csv">
