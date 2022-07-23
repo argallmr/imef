@@ -964,7 +964,7 @@ def get_symh_data(ti, te, expand=None, binned=False):
     return symh_data
 
 
-def get_aspoc_data(sc, mode, level, start_date, end_date, binned=True):
+def get_aspoc_data(sc, mode, level, start_date, end_date, binned=False):
     aspoc_data = util.load_data(sc=sc, instr='aspoc', mode=mode, level=level,
                                 start_date=start_date, end_date=end_date)
 
@@ -977,17 +977,17 @@ def get_aspoc_data(sc, mode, level, start_date, end_date, binned=True):
             )
 
     # Set the sample interval as datetimes
+    # Note that the times are at the center of the bins
     data['dt_minus'] = data['dt_minus'].astype('timedelta64[ns]')
 
-    # Adjust the time stamps to the beginning of the sample interval
-    data = data.assign_coords({'time': data['time'] - data['dt_minus'].data,
-                               'dt_plus': 2 * data['dt_minus'].data,
-                               'dt_minus': np.timedelta64(0, 'ns')})
-
-    data['time'] = data['time']+np.timedelta64(30, 's')
-
-    # it only takes out the values that aren't in the 5 minute time interval
     if binned==True:
-        print(data['time'])
+        # doesn't actually bin, since on-off stuff doesn't really make sense when binned. So just remove the data points that aren't at a 5 minute interval
+        indices = []
+        for counter in range(len(data['time'])):
+            string_of_datetime = str(data['time'].values[counter])
+            if int(string_of_datetime[17:19])%5==0 and counter !=len(data['time'])-1:
+                indices.append(counter)
+
+    data = data.isel(time=indices)
 
     return data
