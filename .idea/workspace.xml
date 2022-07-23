@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="Added placeholder files so that the bfield and particle tracing directories are on git">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/imef/data/data_manipulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/imef/data/data_manipulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/imef/data/download_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/imef/data/download_data.py" afterDir="false" />
-    </list>
+    <list default="true" id="b1e25de3-8eb4-4284-80a0-ddd1ad5ed10e" name="Default Changelist" comment="Fixed get_aspoc_data" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -274,13 +270,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1616604644044</updated>
-    </task>
-    <task id="LOCAL-00020" summary="Generalized bin_5min so that it will also work with get_edi_data, get_fgm_data, get_mec_data, and get_edp_data&#10;&#10;Added/Updated comments">
-      <created>1626297260634</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1626297260634</updated>
     </task>
     <task id="LOCAL-00021" summary="Created sample_data.py, which downloads a variety of data, maps them all to the same 5 minute intervals, and exports that data to a .nc file&#10;&#10;Added an extra optional argument to get_xxx_data, which allows them to be binned into 5 minute intervals&#10;&#10;Added expand_5min, which creates extra data points every 5 minutes for Kp data, which has 1 data point per 3 hours base">
       <created>1626374518438</created>
@@ -618,7 +607,14 @@
       <option name="project" value="LOCAL" />
       <updated>1658594401155</updated>
     </task>
-    <option name="localTasksCounter" value="69" />
+    <task id="LOCAL-00069" summary="Fixed get_aspoc_data">
+      <created>1658596838717</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1658596838717</updated>
+    </task>
+    <option name="localTasksCounter" value="70" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -668,7 +664,6 @@
     <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Updated store_efield_data to utilize the driving_parameter argument correctly with different parameters, and (hopefully) have it separate the extra data when that argument is not empty.&#10;&#10;Updated comments" />
     <MESSAGE value="Corrected the driving parameter binning, as the values were getting exponentially smaller the longer the program was run. The output also includes a count value for each separated variable when using a driving parameter&#10;&#10;Updated Comments" />
     <MESSAGE value="Fixed the driving parameter count for real this time" />
     <MESSAGE value="Implemented some of the IEF storing stuff.&#10;&#10;Created creating_Kp_plots, which creates a couple different plots corresponding to plots from Rowland 1998 using given data collected from store_efield_data&#10;&#10;Updated comments" />
@@ -693,7 +688,8 @@
     <MESSAGE value="Created predict_unified_efield, which takes a given time and a trained pytorch NN and predicts the electric field and the electric potential, and creates some plots of the resulting values.&#10;&#10;Updated unified_efield, such that it actually works. It now requires a file from sample_data that has downloaded the electric field, Kp, and Dst&#10;&#10;Enhanced bin_5min such that it now takes any amount of time and creates 5 minute bins as long as the inputted time range is a multiple of 5 minutes. This is not a problem if any of the get_xxx_functions is used, as they automatically add whatever time is needed onto the end of the time range such that the time range is a multiple of 5 minutes&#10;&#10;Fixed read_txt_files so that it works for all ranges of Dst time ranges&#10;&#10;Updated Comments" />
     <MESSAGE value="Created the IMEF_main branch, which will hold both the electric field and electric potential work, along with the magnetic field models and particle tracing work. This push gives the electric field and electric potential code." />
     <MESSAGE value="Added placeholder files so that the bfield and particle tracing directories are on git" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added placeholder files so that the bfield and particle tracing directories are on git" />
+    <MESSAGE value="Fixed get_aspoc_data" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fixed get_aspoc_data" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/modeling/linear_regression/dummy_data.csv">
