@@ -917,3 +917,77 @@ def get_dst_data(ti, te, expand=None):
     dst_data['DST'] = xr.DataArray(dst, dims=['time'], coords={'time': time})
 
     return dst_data
+
+
+def get_symh_data(ti, te, expand=None, binned=False):
+    # So I couldn't find any way to actually download the data from here, since the data is hidden behind a submit button
+    # So in order for this to work you will have to download the data files manually
+    # The website for this is https://wdc.kugi.kyoto-u.ac.jp/aeasy/index.html
+    # It only has to be done once, but the most recent file will have to be redownloaded if you want to use the most recent data
+    # The files go in data/symh. Download all the data for each year, and name them symh_YYYY.
+
+    if expand is not None and binned == True:
+        raise ValueError("Expand and binned cannot both be used")
+
+    if binned == True:
+        ti = ti - dt.timedelta(minutes=2.5)
+        te = te - dt.timedelta(minutes=2.5)
+
+    fname_list = []
+    increment = ti.year
+
+    # Making the names of all the required files
+    while increment <= te.year:
+        fname_list.append('symh_' + str(increment)+'.dat')
+        increment += 1
+
+    full_symh_data = read_txt_files(fname_list, local_location='data/symh/', mode='symh')
+
+    time, symh = dm.slice_symh_data(full_symh_data, ti, te, binned=binned)
+
+    if binned==False:
+        time = np.array(time) + dt.timedelta(seconds=30)
+
+    if expand is not None:
+        symh = dm.expand_kp(time, symh, expand)
+        time = expand
+
+    symh = symh.astype('float64')  # symh is an integer value, but to keep consistent with kp ill use a float
+
+    # I have the option to put in UT here. Not going to rn but could at a later point
+    # Create an empty dataset at the time values that we made above
+    symh_data = xr.Dataset(coords={'time': time})
+
+    # Put the kp data into the dataset
+    symh_data['SYMH'] = xr.DataArray(symh, dims=['time'], coords={'time': time})
+
+    return symh_data
+
+
+def get_aspoc_data(sc, mode, level, start_date, end_date, binned=True):
+    aspoc_data = util.load_data(sc=sc, instr='aspoc', mode=mode, level=level,
+                                start_date=start_date, end_date=end_date)
+
+    data = (aspoc_data[[sc + '_aspoc_status', sc + '_aspoc_var', sc + '_aspoc_ionc']]
+            .rename({'Epoch': 'time',
+                     sc + '_aspoc_var': 'dt_minus',
+                     sc + '_aspoc_status': 'aspoc_status',
+                     sc + '_aspoc_lbl': 'aspoc_lbl',
+                     sc + '_aspoc_ionc': 'ion_current'})
+            )
+
+    # Set the sample interval as datetimes
+    data['dt_minus'] = data['dt_minus'].astype('timedelta64[ns]')
+
+    # Adjust the time stamps to the beginning of the sample interval
+    data = data.assign_coords({'time': data['time'] - data['dt_minus'].data,
+                               'dt_plus': 2 * data['dt_minus'].data,
+                               'dt_minus': np.timedelta64(0, 'ns')})
+
+    data['time'] = data['time']+np.timedelta64(30, 's')
+
+    # it only takes out the values that aren't in the 5 minute time interval
+    if binned==True:
+        print(data['time'])
+
+    return data

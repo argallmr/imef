@@ -1320,6 +1320,37 @@ def calculate_potential_2(imef_data, name_of_variable, guess):
 
     return V
 
+
+def slice_symh_data(full_data, ti, te, binned=False):
+    time_list = np.array([])
+    symh_list = np.array([])
+
+    for counter in range(0, len(full_data)):
+        one_day = str.split(full_data.iloc[counter][0])
+        one_day.pop(0)
+        something = one_day.pop(0)
+        date = dt.datetime(2000+int(something[5:7]), int(something[7:9]), int(something[9:11]), hour=int(something[12:14]))
+        if date >= ti and date < te: # I think I don't need the = here for date < te
+            if binned==True:
+                all_dates = datetime_range(date, date + dt.timedelta(hours=1), dt.timedelta(minutes=5))
+                one_day.pop(-1)
+                one_day_5min=np.array([])
+                for counter2 in range(12):
+                    bin5min = np.sum(np.array(one_day[5*counter2:5*counter2+5]).astype(float))/5
+                    one_day_5min=np.append(one_day_5min, [bin5min])
+                time_list = np.append(time_list, [all_dates])
+                symh_list = np.append(symh_list, [one_day_5min])
+            else:
+                all_dates = datetime_range(date, date+dt.timedelta(hours=1), dt.timedelta(minutes=1))
+                one_day.pop(-1)
+                time_list = np.append(time_list, [all_dates])
+                symh_list = np.append(symh_list, [one_day])
+        elif date >= te:
+            break
+
+    return time_list, symh_list
+
+
 def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=['Kp'], usetorch=True):
     # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
 
