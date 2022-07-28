@@ -37,10 +37,12 @@ def binned_avg_ds(ds, t_out):
     # Step through each variable in the dataset
     for name, var in ds.data_vars.items():
         # A time series
+        if name == 'dt_plus' or name == 'dt_minus':
+            continue
         if var.ndim == 1:
             if np.issubdtype(var.dtype, np.timedelta64):
                 temp = ds_bin_avg(var.data.astype(float))
-                temp = temp.astype(np.timedelta64)
+                temp = temp.astype(np.timedelta64(1, 'ns'))
             else:
                 temp = ds_bin_avg(var.data)
 

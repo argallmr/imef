@@ -5,6 +5,7 @@ from scipy.stats import binned_statistic_2d
 import torch
 from pathlib import Path
 from warnings import warn
+import os
 
 import imef.data.download_data as dd
 import imef.data.data_manipulation as dm
@@ -272,6 +273,7 @@ def multi_interval(sc, mode, level, t0, t1,
             data.append(one_interval(sc, mode, level, t_start, t_end,
                                      dt_out=dt_out))
         except Exception as E:
+            raise E
             print('Error during interval {0} - {1}'
                   .format(t_start, t_end))
             print(type(E))
@@ -335,20 +337,37 @@ def multi_interval(sc, mode, level, t0, t1,
     if dt_out >= dt.timedelta(seconds=60):
         mnt = int(sec / 60)
         sec = sec % 60
-        optdesc = '{0:d}min{1:d}sec'.format(mnt, sec)
+        optdesc = '{0:d}min{1:d}sec'.format(mnt, int(sec))
     else:
         optdesc = '{0:d}sec'.format(int(sec))
 
     # File path
-    fname = '_'.join((sc, 'imef', mode, level, optdesc,
-                      t0.strftime('%Y%m%d%H%M%S'),
-                      t1.strftime('%Y%m%d%H%M%S')))
+    fname = 'do_not_use'
     fpath = (data_dir / fname).with_suffix('.nc')
 
     # Write to file
     ds.to_netcdf(path=fpath)
 
-    return fpath
+    # For some reason MLT sometimes gets changed to nanosecond timedelta64 objects in the above .to_netcdf
+    # it can be fixed by opening that file, changing it back to hours, and outputting to a file
+    # it is MLT for dt_out=5 seconds, it does it for dt_out=10 seconds, but not for dt_out=60 seconds
+    # I then remove the first file, since it is incorrect and there is no use for it
+    data = xr.open_dataset(fpath)
+
+    if type(data['MLT'].values[0]) == type(np.timedelta64(1, 'ns')):
+        data['MLT'] = data['MLT']/np.timedelta64(1, 'h')
+
+    fname2 = '_'.join((sc, 'imef', mode, level, optdesc,
+                      t0.strftime('%Y%m%d%H%M%S'),
+                      t1.strftime('%Y%m%d%H%M%S')))
+    fpath2 = (data_dir / fname2).with_suffix('.nc')
+
+    data.to_netcdf(path=fpath2)
+
+    data.close()
+    os.remove(fpath)
+
+    return fpath2
 
 
 def one_interval(sc, mode, level, t0, t1, dt_out=None):
@@ -412,46 +431,6 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
                        'L': mec_data['L'],
                        'MLT': mec_data['MLT']})
 
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description='Download data required by the IMEF model and save to netCDF.'
-    )
-
-    parser.add_argument('sc',
-                        type=str,
-                        help='Spacecraft Identifier')
-
-    parser.add_argument('start_date',
-                        type=str,
-                        help='Start date of the data interval: '
-                             '"YYYY-MM-DDTHH:MM:SS""'
-                        )
-
-    parser.add_argument('end_date',
-                        type=str,
-                        help='Start date of the data interval: '
-                             '"YYYY-MM-DDTHH:MM:SS""'
-                        )
-
-    parser.add_argument('-dt', '--sample_interval',
-                        default=5,
-                        type=float,
-                        help='Time interval at which to resample the data',
-                        )
-
-    args = parser.parse_args()
-    t0 = dt.datetime.strptime(args.start_date, '%Y-%m-%dT%H:%M:%S')
-    t1 = dt.datetime.strptime(args.end_date, '%Y-%m-%dT%H:%M:%S')
-    dt_out = dt.timedelta(microseconds=int(args.sample_interval * 1e6))
-
-    mode = 'srvy'
-    level = 'l2'
-
-    fname = multi_interval(args.sc, mode, level, t0, t1, dt_out=dt_out)
-    print(fname)
 
 def predict_efield_and_potential(model, time=None, data=None, return_pred = True, number_of_inputs = 1):
     # A function that will take a model created by create_neural_network.py, and either a time or data argument,

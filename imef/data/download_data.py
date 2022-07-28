@@ -153,6 +153,8 @@ def get_data(sc, instr, mode, level, t0, t1, dt_out=None):
                          '(edi, fgm, mec, dis, des, edp, scpot)')
 
     # Resample in time
+    # if instr == 'edi':
+    #     print(data)
     data = resample(data, t0, t1, dt_out,
                     extrapolate=extrapolate, repeat=repeat)
 
@@ -991,3 +993,10 @@ def get_aspoc_data(sc, mode, level, start_date, end_date, binned=False):
     data = data.isel(time=indices)
 
     return data
+
+def get_AL_data(start_date, end_date):
+    remote_location = 'https://wdc.kugi.kyoto-u.ac.jp/ae_realtime/202206/index.html'
+    local_location = 'data/AE/testAE.html'
+
+    r = requests.get(remote_location, allow_redirects=True)
+    open(local_location, 'wb').write(r.content)
