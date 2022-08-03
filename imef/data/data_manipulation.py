@@ -163,7 +163,7 @@ def bin_kp_r_theta(data, varname, r_range=(0, 10), dr=1, MLT_range=(0, 24), dMLT
     r_mms = np.sqrt(data['R_sc'][:, 0] ** 2 + data['R_sc'][:, 1] ** 2) / R_E
     theta_mms = np.arctan2(data['R_sc'][:, 1], data['R_sc'][:, 0])
     theta_mms = (2 * np.pi + theta_mms) % 2 * np.pi
-    sample = np.column_stack([data['kp'], r_mms, theta_mms])
+    sample = np.column_stack([data['Kp'], r_mms, theta_mms])
 
     # Find all NaN values to remove
     igood = ~np.isnan(data[varname][:, 0].data)
@@ -263,7 +263,7 @@ def bin_r_kp(data, varname, r_range=(0, 10), dr=1, MLT_range=None,
     igood = ~np.isnan(data[varname][:, 1].data)
 
     # Counts
-    counts, kp_bin_edge, r_bin_edge, num = binned_statistic_2d(x=data['kp'][igood].data,
+    counts, kp_bin_edge, r_bin_edge, num = binned_statistic_2d(x=data['Kp'][igood].data,
                                                                y=r_mms[igood].data,
                                                                values=data[varname][igood, 1].data,
                                                                statistic='count',
