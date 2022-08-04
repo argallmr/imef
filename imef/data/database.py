@@ -273,7 +273,7 @@ def multi_interval(sc, mode, level, t0, t1,
             data.append(one_interval(sc, mode, level, t_start, t_end,
                                      dt_out=dt_out))
         except Exception as E:
-            raise E
+            # raise E
             print('Error during interval {0} - {1}'
                   .format(t_start, t_end))
             print(type(E))

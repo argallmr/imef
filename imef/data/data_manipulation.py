@@ -270,7 +270,7 @@ def bin_r_kp(data, varname, r_range=(0, 10), dr=1, MLT_range=None,
                                                                bins=[kp_bins, r_bins])
 
     # Average value
-    avg, kp_bin_edge, r_bin_edge, num = binned_statistic_2d(x=data['kp'][igood].data,
+    avg, kp_bin_edge, r_bin_edge, num = binned_statistic_2d(x=data['Kp'][igood].data,
                                                             y=r_mms[igood].data,
                                                             values=data[varname][igood, 1].data,
                                                             statistic='mean',
@@ -630,6 +630,37 @@ def xform_cart2cyl(r):
 
 def aaaaaaaaaaaaaaaaaaaa():
     pass
+
+
+def bin_r_theta(data, varname, r_range=(0, 10), dr=1, MLT_range=(0,24)):
+    R_E = 6378.1
+
+    # Create the radial bins
+    r_bins = np.arange(r_range[0], r_range[1] + dr, dr)
+
+    # Projection of the radial vector onto the xy-plane (ecliptic if GSE)
+    r_mms = np.sqrt(data['R_sc'][:, 0] ** 2 + data['R_sc'][:, 1] ** 2) / R_E
+
+    mlt_bins = np.arange(MLT_range[0], MLT_range[1]+1, 1)
+
+    # Find all NaN values to remove
+    igood = ~np.isnan(data[varname][:, 1].data)
+
+    # Counts
+    counts, kp_bin_edge, r_bin_edge, num = binned_statistic_2d(x=data['Kp'][igood].data,
+                                                               y=r_mms[igood].data,
+                                                               values=data[varname][igood, 1].data,
+                                                               statistic='count',
+                                                               bins=[mlt_bins, r_bins])
+
+    # Average value
+    avg, kp_bin_edge, r_bin_edge, num = binned_statistic_2d(x=data['Kp'][igood].data,
+                                                            y=r_mms[igood].data,
+                                                            values=data[varname][igood, 1].data,
+                                                            statistic='mean',
+                                                            bins=[mlt_bins, r_bins])
+
+    return counts, avg, mlt_bins, r_bins
 
 
 def cart2polar(pos_cart, factor=1, shift=0):
