@@ -1264,8 +1264,8 @@ def get_C(min_Lvalue, max_Lvalue):
 
 def calculate_potential(imef_data, name_of_variable):
     # Determine the L range that the data uses
-    min_Lvalue = imef_data['L'][0, 0].values
-    max_Lvalue = imef_data['L'][-1, 0].values
+    min_Lvalue = imef_data['L'][0].values
+    max_Lvalue = imef_data['L'][-1].values
 
     # Find the number of bins relative to L and MLT
     # nL is the number of L values in E, not Φ. So there will be nL+1 in places. There are 6 L values in E, but 7 in Φ (As L is taken at values of 4.5, 5.5, etc in E, but 4, 5, etc in Φ)

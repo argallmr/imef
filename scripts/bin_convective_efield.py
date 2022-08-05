@@ -43,15 +43,17 @@ def main():
         binned_data['E_convective_mean'] = xr.DataArray(avg, dims=['Kp', 'L'], coords={'Kp': kp_bins, 'L': r_bins})
         binned_filename = file + '_binned_r_kp.nc'
     elif nokp:
-        counts, avg, mlt_bins, r_bins = dm.bin_r_theta(data, 'E_convective')
-        r_bins = np.arange(0, 10)
-        mlt_bins = np.arange(0, 23)
-        binned_data = xr.Dataset(coords={'MLT': mlt_bins, 'L': r_bins})
-        binned_data['E_convective_counts'] = xr.DataArray(counts, dims=['MLT', 'L'], coords={'MLT': mlt_bins, 'L': r_bins})
-        binned_data['E_convective_mean'] = xr.DataArray(avg, dims=['MLT', 'L'], coords={'MLT': mlt_bins, 'L': r_bins})
+        # By setting kp_bins to be the entire range of kp values, we get binned by only r_theta_cart
+        binned_data = dm.bin_kp_r_theta(data, 'E_convective', kp_bins=np.array([0, 10]))
+        # But it has a Kp dimension still (that is 1 unit big). Remove that dimension from dataset and variables
+        binned_data['E_convective_mean'] = binned_data['E_convective_mean'][0]
+        binned_data['E_convective_counts'] = binned_data['E_convective_counts'][0]
+        binned_data = binned_data.drop_vars('kp')
+        binned_data = binned_data.rename({'comp':'cart'})
         binned_filename = file + '_binned_r_theta.nc'
     else:
         binned_data = dm.bin_kp_r_theta(data, 'E_convective')
+        binned_data = binned_data.rename({'comp': 'cart'})
         binned_filename = file+'_binned_r_theta_kp.nc'
 
     binned_data.to_netcdf(binned_filename)
