@@ -1,4 +1,5 @@
 import datetime as dt
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
 
 import xarray as xr
@@ -7,6 +8,9 @@ import numpy as np
 # FTP
 from ftplib import FTP, error_perm as ftp_error_perm
 import pandas as pd
+
+# HTML
+from bs4 import BeautifulSoup
 
 # DSCOVR_Downloader
 from pathlib import Path
@@ -37,6 +41,7 @@ kp_ftp_site = 'ftp.gfz-potsdam.de'
 kp_ftp_dir = 'pub/home/obs/Kp_ap_Ap_SN_F107/'
 dst_realtime_url = 'https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/'
 dst_provisional_url = 'https://wdc.kugi.kyoto-u.ac.jp/dst_provisional/'
+dst_final_url = 'https://wdc.kugi.kyoto-u.ac.jp/dst_final/'
 
 # Local data locations
 data_root = Path('~/data/').expanduser()
@@ -271,6 +276,34 @@ class Downloader():
         intervals = [(dt.datetime.combine(d, dt.time(0)),
                       dt.datetime.combine(d, dt.time(23, 29, 59)))
                      for d in dates]
+
+        return intervals
+
+    @staticmethod
+    def intervals_monthly(start_time, end_time):
+        '''
+        Break down a time interval into sub-intervals that are one month long.
+        Day, hour, minute, and second fields are ignored if present.
+
+        Parameters
+        ----------
+        interval : tuple of `datetime.datetime`
+            Start and end dates of the time interval
+
+        Returns
+        -------
+        intervals : list of `datetime.datetime` tuples
+            Sub-intervals of duration one month
+        '''
+        intervals = []
+        time = dt.datetime(start_time.year, start_time.month, 1)
+        #  - Add the right end point to the last interval
+        end_time += relativedelta(months=+1)
+
+        while time.year != end_time.year or time.month != end_time.month:
+            times = (time, time +relativedelta(months=+1) - dt.timedelta(microseconds=1))
+            intervals.append(times)
+            time += relativedelta(months=+1)
 
         return intervals
 
@@ -875,6 +908,171 @@ class Kp_Downloader(Downloader):
                 results = None
 
         return results
+
+
+class Dst_Downloader(Downloader):
+
+    def download(self, interval):
+        '''
+        Download a DST data file.
+
+        Parameters
+        ----------
+        interval : (2) tuple of `datetime.datetime`
+            Start and end times of the data to be downloaded
+
+        Returns
+        -------
+        local_file : `pathlib.Path`
+            File path
+        '''
+        # Check if the file exists
+        file_path = self.local_path(interval)
+        # If it doesn't exist, make the directory
+        if not file_path.parent.exists():
+            file_path.parent.mkdir(parents=True)
+
+        # There are 3 types of DST data, and the data for each year gets updated from time to time
+        # Find the most up-to-date version of that data for the given interval, and download that file
+        remote_location_list = [dst_final_url, dst_provisional_url, dst_realtime_url]
+        location_index=0
+        loop=True
+        while loop==True:
+            remote_location = remote_location_list[location_index] + interval[0].strftime('%Y%m') + '/index.html'
+            r = requests.get(remote_location)
+            if r.status_code == 200:
+                loop=False
+            else:
+                location_index += 1
+
+        # Write file to local path
+        open(file_path, 'wb').write(r.content)
+
+        return file_path
+
+    def fname(self, interval):
+        '''
+        Create a file name.
+
+        Parameters
+        ----------
+        interval : (2) tuple of `datetime.datetime`
+            Time interval of the data
+
+        Returns
+        -------
+        fname : str
+            Name of the file
+        '''
+        return 'Dst_' + interval[0].strftime('%Y%m') + '.html'
+
+    def intervals(self, start_time, end_time):
+        '''
+        Break the time interval down into a set of intervals associated
+        with individual file names.
+
+        Parameters
+        ----------
+        start_time, end_time : datetime.datetime
+            Start and end times of the data interval
+
+        Returns
+        -------
+        intervals : list of tuples
+            Time intervals (start_time, end_time) associated with individual
+            data files
+        '''
+        return self.intervals_monthly(start_time, end_time)
+
+    def load_file(self, interval):
+
+        # Download data if it doesn't exist locally already
+        file_path = self.local_path(interval)
+        if not file_path.exists():
+            file_path = self.download(interval)
+
+        # Get data from file
+        with open(file_path, 'r') as file:
+            soup = BeautifulSoup(file, 'html.parser')
+            text_split = soup.get_text().split()
+
+        # Skip the website's header
+        index=1
+        while text_split[index-1] != 'DAY':
+            index+=1
+        data=[]
+
+        # Combine all the Dst data into a list
+        while index < len(text_split):
+            try:
+                data.append(int(text_split[index]))
+            except:
+                # Sometimes the numbers are not separated by whitespace (eg. -98-105-102). Fix those
+                numbers = text_split[index]
+                numbers_list = numbers.split('-')
+                if numbers_list[0] == '':
+                    numbers_list.pop(0)
+                numbers_list = (np.array(numbers_list).astype('int64') * -1).tolist()
+                for number in numbers_list:
+                    data.append(number)
+            index+=1
+
+        # Remove every 25th item in the list. These are the day counters, not Dst data
+        del data[0::25]
+
+        # Create a datetime list that contains all the times that this file has data for
+        datetimes = []
+        current = interval[0]
+        while current < interval[1]:
+            datetimes.append(current)
+            current += dt.timedelta(hours=1)
+
+        dataset = xr.Dataset(coords={'time':datetimes})
+        dataset['Dst'] = xr.DataArray(data, dims=['time'], coords={'time': datetimes})
+        dataset = dataset.assign_coords({'dt_plus': np.timedelta64(1, 'h'),
+                               'dt_minus': np.timedelta64(0, 'h')})
+
+        return dataset
+
+    def local_dir(self):
+        '''
+        Local data directory relative to the data root.
+
+        Returns
+        -------
+        local_dir : `pathlib.Path`
+            File path relative to the data root
+        '''
+        return Path('Dst/')
+
+    def local_path(self, interval):
+        '''
+        Absolute path to a single file.
+
+        Parameters
+        ----------
+        interval : (2) tuple of datetime.datetime
+            Start and end time associated with a single file
+
+        Returns
+        -------
+        path : `pathlib.Path`
+            Absolute file path
+        '''
+        return data_root / self.local_dir() / self.fname(interval)
+
+    def search_local(self, interval):
+        file_path = self.local_path(interval)
+
+        if file_path.exists():
+            return file_path
+        else:
+            return None
+
+    # def search_remote(self, interval):
+    # this isn't even used in Kp_downloader. what is it for
+
+
 
 
 def _download_ftp(ftp_base, fname, local_dir):

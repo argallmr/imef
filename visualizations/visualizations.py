@@ -617,7 +617,8 @@ def plot_global_efield_one(E, counts, axes=None, plot_counts=False):
         fig = ax.figure
 
     # Global Electric Field
-    ax.quiver(E['theta'], E['r'], E[..., 0], E[..., 1])
+    ax.quiver(E['theta'], E['r'], E['E_convective_mean'][..., 0], E['E_convective_mean'][..., 1])
+    # ax.quiver(E['theta'], E['r'], E[..., 0], E[..., 1])
     ax.set_xlabel("Electric Field")
     ax.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     ax.set_theta_direction(1)

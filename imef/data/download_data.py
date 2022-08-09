@@ -274,8 +274,25 @@ def get_dscovr_data():
     raise NotImplementedError
 
 
-def get_dst_data():
-    raise NotImplementedError
+def get_dst_data(t0, t1, dt_out=None):
+    data = []
+
+    # Time intervals
+    dst_util = dd_util.Dst_Downloader()
+    intervals = dst_util.intervals(t0, t1)
+
+    # Load the data
+    for interval in intervals:
+        data.append(dst_util.load_file(interval))
+
+    # Combine the data into a single dataset
+    dst_data = xr.concat(data, dim='time').sortby('time')
+
+    # Resample
+    if dt_out is not None:
+        dst_data = resample(dst_data['Dst'], t0, t1, dt_out, repeat=True)
+
+    return dst_data
 
 
 def get_omni_data():
@@ -648,7 +665,7 @@ def get_edp_data(sc, level, ti, te, binned=False):
     return edp_data
 
 
-def get_omni_data(ti, te):
+def get_omni_data_old(ti, te):
     # Download the omni data as a timeseries object, with data points every 5 minutes
     # We can choose between 1 min, 5 min, and 1 hour intervals
     # Subtracting the microsecond is so the data will include the midnight data variable. Otherwise we are missing the first piece of data
@@ -745,7 +762,7 @@ def get_des_data(sc, mode, level, ti, te, binned=False):
 
 
 # If you are having problems with this function, delete all Kp files in data/kp and run again. This may fix it
-def get_kp_data(ti, te, expand=[None]):
+def get_kp_data_old(ti, te, expand=[None]):
     # Location of the files on the server
     remote_location = 'ftp://ftp.gfz-potsdam.de/pub/home/obs/Kp_ap_Ap_SN_F107/'
     # Location where the file will be places locally
@@ -792,7 +809,7 @@ def get_kp_data(ti, te, expand=[None]):
     return kp_data
 
 
-def get_IEF_data(ti, te, expand=[None]):
+def get_IEF_data_old(ti, te, expand=[None]):
     # Note that this only works correctly for one day of info. Maybe will generalize later but for now exactly 1 day
     # Also note that the fgm data should be downloaded with the binned variable set to True
 
@@ -832,7 +849,7 @@ def get_IEF_data(ti, te, expand=[None]):
 
 
 # If you are having problems with this function, delete all Kp files in data/dst and run again. This may fix it
-def get_dst_data(ti, te, expand=None):
+def get_dst_data_old(ti, te, expand=None):
     # I use two different types of data: since this website only has real-time data from 2020 onwards, and provisional data from 2015 to 2019, I have to use two separate links
 
     # Location of the files on the server. the month/year is part of the link, so the before and after is broken apart
@@ -921,7 +938,7 @@ def get_dst_data(ti, te, expand=None):
     return dst_data
 
 
-def get_symh_data(ti, te, expand=None, binned=False):
+def get_symh_data_old(ti, te, expand=None, binned=False):
     # So I couldn't find any way to actually download the data from here, since the data is hidden behind a submit button
     # So in order for this to work you will have to download the data files manually
     # The website for this is https://wdc.kugi.kyoto-u.ac.jp/aeasy/index.html
@@ -993,10 +1010,3 @@ def get_aspoc_data(sc, mode, level, start_date, end_date, binned=False):
     data = data.isel(time=indices)
 
     return data
-
-def get_AL_data(start_date, end_date):
-    remote_location = 'https://wdc.kugi.kyoto-u.ac.jp/ae_realtime/202206/index.html'
-    local_location = 'data/AE/testAE.html'
-
-    r = requests.get(remote_location, allow_redirects=True)
-    open(local_location, 'wb').write(r.content)
