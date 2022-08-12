@@ -402,6 +402,8 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
     edp_data = dd.get_data(sc, 'edp', mode, level, t0, t1, dt_out=dt_out)
     scpot_data = dd.get_data(sc, 'scpot', mode, level, t0, t1, dt_out=dt_out)
     kp_data = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
+    dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
+    omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
     orbit_data = dd.get_orbit_number(sc, t0, t1, dt_out=dt_out)
 
     # Get the corotation electric field
@@ -425,6 +427,12 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
                        'E_DES': E_DES,
                        'E_EDP': edp_data['E_GSE'],
                        'Kp': kp_data,
+                       'Dst': dst_data,
+                       'Sym-H': omni_data['Sym-H'],
+                       'AE': omni_data['AE'],
+                       'AL': omni_data['AL'],
+                       'AU': omni_data['AU'],
+                       'IEF': omni_data['IEF'],
                        'Scpot': scpot_data,
                        'R_sc': mec_data['R_sc'],
                        'V_sc': mec_data['V_sc'],

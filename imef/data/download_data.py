@@ -295,8 +295,57 @@ def get_dst_data(t0, t1, dt_out=None):
     return dst_data
 
 
-def get_omni_data():
-    raise NotImplementedError
+def get_omni_data(t0, t1, dt_out=None):
+    full_omni_data = omni.hro2_1min(t0 - dt.timedelta(microseconds=1), t1)
+
+    full_omni_data = full_omni_data.to_dataframe()
+
+    # The first value of every month appears twice (I assume it's a bug). Remove the duplicate value
+    full_omni_data = full_omni_data.drop_duplicates()
+
+    # Convert pandas dataframe to an xarray dataset
+    full_omni_data = full_omni_data.to_xarray()
+
+    omni_data = xr.Dataset(
+        coords={'Time': full_omni_data['Time'], 'V_index': ['Vx', 'Vy', 'Vz'], 'B_index': ['Bx', 'By', 'Bz']})
+
+    # Concatenate the V and B values so that they will fit inside the above dataset.
+    V_values = np.vstack((full_omni_data['Vx'], full_omni_data['Vy'], full_omni_data['Vz'])).T
+    B_values = np.vstack((full_omni_data['BX_GSE'], full_omni_data['BY_GSE'], full_omni_data['BZ_GSE'])).T
+
+    # Put the values into the new dataset
+    omni_data['V_OMNI'] = xr.DataArray(V_values, dims=['Time', 'V_index'], coords={'Time': omni_data['Time']})
+    omni_data['B_OMNI'] = xr.DataArray(B_values, dims=['Time', 'B_index'], coords={'Time': omni_data['Time']})
+    omni_data['Sym-H'] = xr.DataArray(full_omni_data['SYM_H'].values, dims=['Time'], coords={'Time': omni_data['Time']})
+    omni_data['AE'] = xr.DataArray(full_omni_data['AE_INDEX'].values, dims=['Time'], coords={'Time': omni_data['Time']})
+    omni_data['AL'] = xr.DataArray(full_omni_data['AL_INDEX'].values, dims=['Time'], coords={'Time': omni_data['Time']})
+    omni_data['AU'] = xr.DataArray(full_omni_data['AU_INDEX'].values, dims=['Time'], coords={'Time': omni_data['Time']})
+    omni_data = omni_data.assign_coords({'dt_plus': np.timedelta64(1, 'm'), 'dt_minus': np.timedelta64(0, 'h')})
+
+    # Rename time so that it is the same as the other datasets, making concatenation easier
+    omni_data = omni_data.rename({'Time': 'time'})
+
+    # Put the data into the dataset
+    omni_data['IEF'] = dm.calculate_IEF(omni_data)
+
+    if dt_out is not None:
+        V_omni = resample(omni_data['V_OMNI'], t0, t1, dt_out, repeat=True)
+        B_omni = resample(omni_data['B_OMNI'], t0, t1, dt_out, repeat=True)
+        Sym_h = resample(omni_data['Sym-H'], t0, t1, dt_out, repeat=True)
+        AE = resample(omni_data['AE'], t0, t1, dt_out, repeat=True)
+        AL = resample(omni_data['AL'], t0, t1, dt_out, repeat=True)
+        AU = resample(omni_data['AU'], t0, t1, dt_out, repeat=True)
+        IEF = resample(omni_data['IEF'], t0, t1, dt_out, repeat=True)
+        omni_data = xr.Dataset(coords={'time': V_omni['time'], 'V_index': ['Vx', 'Vy', 'Vz'], 'B_index': ['Bx', 'By', 'Bz']})
+        omni_data['V_OMNI'] = V_omni
+        omni_data['B_OMNI'] = B_omni
+        omni_data['Sym-H']= Sym_h
+        omni_data['AE'] = AE
+        omni_data['AL'] = AL
+        omni_data['AU'] = AU
+        omni_data['IEF'] = IEF
+
+    return omni_data
 
 
 def resample(data, t0, t1, dt_out, extrapolate=False, repeat=False):

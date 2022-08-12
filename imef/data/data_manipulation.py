@@ -663,6 +663,29 @@ def bin_r_theta(data, varname, r_range=(0, 10), dr=1, MLT_range=(0,24)):
     return counts, avg, mlt_bins, r_bins
 
 
+def calculate_IEF(omni_data):
+    V = np.array([])
+    for counter in range(len(omni_data['V_OMNI'].values)):
+        start = np.linalg.norm(omni_data['V_OMNI'][counter].values)
+        V = np.append(V, [start])
+
+    # Can't really verify that these are right. Just gotta hope I guess (especially w theta). I think it worked correctly
+    By = omni_data['B_OMNI'][:, 1].values
+    Bz = omni_data['B_OMNI'][:, 2].values
+    theta = np.arctan(By / Bz)
+
+    # IEF = V*sqrt(B_y^2 + B_z^2)sin^2(\theta / 2) -> V is the velocity of the plasma, should be in OMNI
+    # theta = tan^−1(B_Y/B_Z)
+    # The /1000 is from dimensional analysis, to keep units in mV/m
+    IEF_values = V * np.sqrt((By ** 2) + (Bz ** 2)) * (np.sin(theta / 2) ** 2) / 1000
+
+    IEF_values = IEF_values.astype('float64')
+
+    IEF = xr.DataArray(IEF_values, dims=['time'], coords={'time': omni_data['time']})
+
+    return IEF
+
+
 def cart2polar(pos_cart, factor=1, shift=0):
     '''
     Rotate cartesian position coordinates to polar coordinates
