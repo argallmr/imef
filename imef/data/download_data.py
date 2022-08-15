@@ -153,8 +153,6 @@ def get_data(sc, instr, mode, level, t0, t1, dt_out=None):
                          '(edi, fgm, mec, dis, des, edp, scpot)')
 
     # Resample in time
-    # if instr == 'edi':
-    #     print(data)
     data = resample(data, t0, t1, dt_out,
                     extrapolate=extrapolate, repeat=repeat)
 
@@ -538,6 +536,9 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
     # Note that binning results in the rest of the variables (everything but E_GSE) being dropped.
     if binned == True:
         edi_data = dm.bin_5min(edi_data, ['E_GSE'], ['E'], ti, te)
+
+    edi_data = edi_data.rename({'E_index': 'cart'})
+    edi_data['cart'] = ['x', 'y', 'z']
 
     return edi_data
 

@@ -409,9 +409,9 @@ def E_convection(v, b):
         Convective electric field (mV/m)
     '''
     return xr.DataArray(-1e-3 * np.cross(v, b),
-                        dims=('time', 'component'),
+                        dims=('time', 'cart'),
                         coords={'time': v['time'],
-                                'component': ['x', 'y', 'z']})
+                                'cart': ['x', 'y', 'z']})
 
 
 def E_corot(r):

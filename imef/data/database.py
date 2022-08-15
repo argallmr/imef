@@ -409,7 +409,7 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
     # Get the corotation electric field
     E_cor = dm.corotation_electric_field(mec_data['R_sc'])
 
-    # Get the convective electric field
+    # Get the spacecraft electric field
     E_con = dm.E_convection(-mec_data['V_sc'], fgm_data['B_GSE'][:, 0:3])
 
     # Calculate the plasma convection field
@@ -422,7 +422,7 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
     return xr.Dataset({'E_EDI': edi_data['E_GSE'],
                        'B_GSE': fgm_data['B_GSE'],
                        'E_cor': E_cor,
-                       'E_con': E_con,
+                       'E_sc': E_con,
                        'E_DIS': E_DIS,
                        'E_DES': E_DES,
                        'E_EDP': edp_data['E_GSE'],

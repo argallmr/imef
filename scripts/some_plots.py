@@ -3,21 +3,19 @@ import xarray as xr
 import numpy as np
 import imef.data.data_manipulation as dm
 import visualizations.plot_nc_data as xrplot
+import visualizations.visualizations as vis
 
-
-def kp_histogram(data):
-    # log10 is more difficult than it seems, since it bins the new log10 values, making the bins inaccurate
-    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
-    ax=axes[0][0]
-    bins = np.array([0,1,2,3,4,5,6,7,9])
-    ax.hist(data['Kp'].values, bins=np.arange(0, 9))
-    plt.xticks(np.arange(0, 10))
-    axes[0][1].hist(data['Kp'].values, bins=bins)
-    ax.set_xlabel('Kp Bin Sizes')
-    ax.set_ylabel("# of Data Points in Each Kp Range")
-    plt.xticks(np.arange(0, 10))
+# works for whatever index/bins now. Coolio
+def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9])):
+    fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False)
+    plt.xticks(bins)
+    ax = axes[0][0]
+    ax.hist(data[index].values, bins=bins)
+    ax.set_xlabel(index + ' Bin Sizes')
+    ax.set_ylabel("# of Data Points in Each " + index + " Range")
 
     plt.show()
+
 
 def plot_potential(V_data, L, MLT):
     # Note that it is expected that the electric field data is in polar coordinates. Otherwise the potential values are incorrect
@@ -69,6 +67,7 @@ def plot_potential(V_data, L, MLT):
     xrplot.draw_earth(ax1)
 
     plt.show()
+
 
 def plot_efield(imef_data, plotted_variable, mode='cartesian', count=True, log_counts=False):
 
@@ -139,6 +138,7 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', count=True, log_c
 
 def calculate_and_plot_potential(data):
     # Size of the bins
+    data=data.rename({'comp':'cart'})
     dr = (data['r'][1]-data['r'][0]).values
     dtheta = (data['theta'][1]-data['theta'][0]).values*12/np.pi
 
@@ -195,16 +195,26 @@ def calculate_and_plot_potential(data):
 
 
 def main():
-    data = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150915000000_20210101000000.nc')
-    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150915000000_20210101000000_binned_r_theta.nc')
+    data = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000.nc')
+    data_binned_nk = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000_binned_r_theta.nc')
+    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000_binned_r_theta_kp.nc')
+    data_binned_nt = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000_binned_r_kp.nc')
 
-    # kp_histogram(data)
+    other_binned = xr.open_dataset('example_datasets/mms1_imef_srvy_l2_5sec_20150915000000_20210101000000_binned_r_theta_kp.nc')
 
-    calculate_and_plot_potential(data_binned)
+    # There is none in 40-60 for dst
+    create_histogram(data, index='Sym-H', bins=np.array([-140, -120, -100, -80, -60, -40, -20, 0, 20, 40, 60]))
 
-    # Redo calculate and plot potential with matt's plotting (if it exists), and compare. (mainly efield, kinda sketchy)
+    calculate_and_plot_potential(data_binned_nk)
 
+    fig, axes = vis.plot_global_efield_one(data_binned_nk, None)
+    plt.show()
 
+    fig, axes = vis.plot_global_counts_kp(data_binned, varname='E_convective')
+    plt.show()
+
+    fig, axes = vis.plot_efield_r_kp(data_binned, 'E_convective')
+    plt.show()
 
 
 if __name__ == '__main__':

@@ -401,8 +401,12 @@ def plot_efield_r_kp_one(E, counts, axes=None, plot_counts=False, legend=False):
         cts = cts.where(cts != 0)
 
         # Minimum radial distance
-        r_min_temp = next(r for r, e in zip(E['r'].data, np.ma.getmask(data)) if not e)
-        r_min = min(r_min, r_min_temp)
+        try:
+            r_min_temp = next(r for r, e in zip(E['r'].data, np.ma.getmask(data)) if not e)
+            r_min = min(r_min, r_min_temp)
+        except:
+            # If there is no data in this kp range, skip this line and go to the next.
+            continue
 
         # Label for the Kp bin
         kp_min = np.ceil(E['kp'].data[ikp])
