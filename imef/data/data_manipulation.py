@@ -1408,14 +1408,14 @@ def slice_symh_data(full_data, ti, te, binned=False):
 
 
 def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=['Kp'], usetorch=True):
-    # This could be made way more efficient if I were to make the function not download all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
+    # This could be made way more efficient if I were to make the function not store all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
 
     if 'Kp' in use_values:
         Kp_data = imef_data['Kp']
     if 'Dst' in use_values:
-        Dst_data = imef_data['DST']
-    if 'Symh' in use_values:
-        Symh_data = imef_data['SYMH']
+        Dst_data = imef_data['Dst']
+    if 'Sym-H' in use_values:
+        Symh_data = imef_data['Sym-H']
 
     if remove_nan == True:
         imef_data = imef_data.where(np.isnan(imef_data['E_EDI'][:, 0]) == False, drop=True)
@@ -1429,15 +1429,11 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
         if 'Dst' in use_values:
             Dst_index_data = Dst_data.values[counter - 60:counter].tolist()
             new_data_line += Dst_index_data
-        if 'Symh' in use_values:
+        if 'Sym-H' in use_values:
             Symh_index_data = Symh_data.values[counter - 60:counter].tolist()
             new_data_line += Symh_index_data
 
         # Along with the indices, we include 3 extra values to train on: The distance from the Earth (L), cos(MLT), and sin(MLT)
-        # There are two lines here, one for the nanoseconds timedelta version of the files, one for the normal MLT versions of the files. Only the MLT version should be used in the future, but this line remains just in case
-        # For nanosecond timedeltas
-        # the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter] / np.timedelta64(1, 'h')), np.sin(np.pi / 12 * imef_data['MLT'].values[counter] / np.timedelta64(1, 'h'))]).tolist()
-        # For MLT
         the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter]), np.sin(np.pi / 12 * imef_data['MLT'].values[counter])]).tolist()
         new_data_line += the_rest_of_the_data
 
@@ -1452,8 +1448,7 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
         design_matrix_array = np.array(design_matrix_array)
 
     if get_target_data == True:
-        # The convection electric field is the total electric field (E_EDI), minus the spacecraft electric field (E_con), minus the corotation electric field (E_cor)
-        efield_data = imef_data['E_EDI'].values[60:, :] - imef_data['E_con'].values[60:, :] - imef_data['E_cor'].values[60:, :]
+        efield_data = imef_data['E_con'].values[60:, :]
 
         if usetorch==True:
             efield_data = torch.from_numpy(efield_data)
@@ -1461,3 +1456,50 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
         return design_matrix_array, efield_data
     else:
         return design_matrix_array
+
+
+# just realized this could probably be made significantly easier with binned_statistic. oh well
+def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=None):
+    # given a datafile from sample_data.py, this function returns a list of intervals that represent the storm data
+    # dips has the first and last indices that contain all the data
+
+    timescale = data['time'].values[1] - data['time'].values[0]
+    if mode == 'Dst':
+        bins_per_timescale = int(np.timedelta64(1, 'h')/timescale)
+    elif mode == 'Sym-H':
+        bins_per_timescale = int(np.timedelta64(1, 'm')/timescale)
+    else:
+        raise ValueError('Mode must be either Dst or Sym-H')
+
+    dips=[]
+    counter=0
+    while counter < len(data[mode].values):
+        if data[mode].values[counter] <=threshold:
+            loop=True
+            another_counter=counter
+            hours_under_thresh=0
+            while loop==True:
+                if max_hours == None or max_hours==0:
+                    if data[mode].values[another_counter] > threshold:
+                        loop=False
+                        dips.append([counter, another_counter])
+                        counter=another_counter
+                    another_counter += bins_per_timescale
+                else:
+                    if data[mode].values[another_counter] > threshold:
+                        hours_under_thresh+=1
+                    else:
+                        hours_under_thresh=0
+                    another_counter += bins_per_timescale
+
+                    if hours_under_thresh==max_hours or another_counter == len(data[mode].values): # if there is int(max_hours) hours without a dip over (threshold) nT, then stop and record the index
+                        loop=False
+                        if counter-bins_per_timescale*max_hours<0:
+                            dips.append([0, another_counter])
+                        else:
+                            dips.append([counter-bins_per_timescale*max_hours, another_counter]) # record 1 day of data before the initial drop, and all the data until 1 day after
+                        counter=another_counter
+
+        counter+=1
+
+    return dips
