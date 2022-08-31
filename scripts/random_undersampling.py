@@ -42,8 +42,12 @@ def random_undersampling(data, threshold=-40, quiet_storm_ratio=1.0):
     if quiet_counts > storm_counts:
         bins_to_undersample = reverse_bins(intervals_of_storm_data, len(data['time']))
         percent_to_reduce = quiet_storm_ratio * storm_counts / quiet_counts
+
         if percent_to_reduce >= 1:
             raise ValueError('quiet_storm_ratio is too large. The max value for this dataset is '+str(quiet_counts/storm_counts))
+        elif percent_to_reduce <= 0:
+            raise ValueError('quiet_storm ratio is too small. It must be greater than 0')
+
         all_times = []
         for start, end in intervals_of_storm_data:
             all_times.append(data['time'].values[start:end])

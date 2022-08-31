@@ -5,6 +5,7 @@ from warnings import warn
 import scipy.optimize as optimize
 from scipy.stats import binned_statistic, binned_statistic_2d, binned_statistic_dd
 import torch
+import pandas as pd
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
@@ -1414,33 +1415,45 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
         Kp_data = imef_data['Kp']
     if 'Dst' in use_values:
         Dst_data = imef_data['Dst']
-    if 'Sym-H' in use_values:
+    if 'Symh' in use_values:
         Symh_data = imef_data['Sym-H']
 
     if remove_nan == True:
-        imef_data = imef_data.where(np.isnan(imef_data['E_EDI'][:, 0]) == False, drop=True)
+        imef_data = imef_data.where(np.isnan(imef_data['E_con'][:, 0]) == False, drop=True)
 
     # Note that the first bits of data cannot be used, because the first 60 times dont have Kp values and whatnot. Will become negligible when done on a large amount of data
-    for counter in range(60, len(imef_data['time'].values)):
+    imef_data = imef_data.where(imef_data['time']>=(imef_data['time'].values[0]+np.timedelta64(5, 'h')), drop=True)
+
+    if get_target_data == True:
+        times_to_keep = []
+    for counter in range(0, len(imef_data['time'].values)):
         new_data_line = []
-        if 'Kp' in use_values:
-            Kp_index_data = Kp_data.values[counter - 60:counter].tolist()
-            new_data_line += Kp_index_data
-        if 'Dst' in use_values:
-            Dst_index_data = Dst_data.values[counter - 60:counter].tolist()
-            new_data_line += Dst_index_data
-        if 'Sym-H' in use_values:
-            Symh_index_data = Symh_data.values[counter - 60:counter].tolist()
-            new_data_line += Symh_index_data
+        time_intervals = pd.date_range(end=imef_data['time'].values[counter], freq='5T', periods=60)
+        # print(time_intervals)
+        try:
+            if 'Kp' in use_values:
+                Kp_index_data = Kp_data.sel(time=time_intervals).values.tolist()
+                new_data_line += Kp_index_data
+            if 'Dst' in use_values:
+                Dst_index_data = Dst_data.sel(time=time_intervals).values.tolist()
+                new_data_line += Dst_index_data
+            if 'Symh' in use_values:
+                Symh_index_data = Symh_data.sel(time=time_intervals).values.tolist()
+                new_data_line += Symh_index_data
 
-        # Along with the indices, we include 3 extra values to train on: The distance from the Earth (L), cos(MLT), and sin(MLT)
-        the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter]), np.sin(np.pi / 12 * imef_data['MLT'].values[counter])]).tolist()
-        new_data_line += the_rest_of_the_data
+            # Along with the indices, we include 3 extra values to train on: The distance from the Earth (L), cos(MLT), and sin(MLT)
+            the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter]), np.sin(np.pi / 12 * imef_data['MLT'].values[counter])]).tolist()
+            new_data_line += the_rest_of_the_data
 
-        if counter == 60:
-            design_matrix_array = [new_data_line]
-        else:
-            design_matrix_array.append(new_data_line)
+            if counter == 0:
+                design_matrix_array = [new_data_line]
+            else:
+                design_matrix_array.append(new_data_line)
+
+            if get_target_data==True:
+                times_to_keep.append(imef_data['time'].values[counter])
+        except:
+            pass
 
     if usetorch==True:
         design_matrix_array = torch.tensor(design_matrix_array)
@@ -1448,7 +1461,7 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
         design_matrix_array = np.array(design_matrix_array)
 
     if get_target_data == True:
-        efield_data = imef_data['E_con'].values[60:, :]
+        efield_data = imef_data['E_con'].sel(time=times_to_keep).values
 
         if usetorch==True:
             efield_data = torch.from_numpy(efield_data)

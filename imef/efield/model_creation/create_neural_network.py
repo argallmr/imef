@@ -120,14 +120,13 @@ def train_NN(args):
             string = string + str(len(parameter))
         counter+=1
 
-    #  These values are all things to be messed with to get the optimal neural network.
-
+    # These values are all things to be messed with to get the optimal neural network.
     # the number of points
-    batch_size = 32
+    batch_size = args.batch_size
     # The amount each batch of points will affect the training of the NN
-    learning_rate = .01
+    learning_rate = args.learning_rate
     # the number times to iterate over the dataset
-    epochs = 10
+    epochs = args.epochs
     # The function that the model wants to optimize
     # Finding some other useful papers on different loss functions could be crucial, as it was suggested to try piecewise functions to help predict the nonlinear nature of the electric field
     loss_fn = nn.MSELoss()
@@ -275,6 +274,24 @@ def main():
 
     parser.add_argument('-a', '--adam', help='Use ADAM as the optimizer instead of the default Stochastic Gradient Descent',
                         action='store_true')
+
+    parser.add_argument('-bs', '--batch_size',
+                        default=64,
+                        type=int,
+                        help='The batch size defines the number of samples that will be propagated through the network.',
+                        )
+
+    parser.add_argument('-lr', '--learning_rate',
+                        default=.01,
+                        type=float,
+                        help='# The amount each batch of points will affect the training of the NN',
+                        )
+
+    parser.add_argument('-e', '--epochs',
+                        default=1000,
+                        type=int,
+                        help='the number times to iterate over the dataset',
+                        )
 
     args = parser.parse_args()
 

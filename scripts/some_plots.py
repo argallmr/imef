@@ -5,14 +5,21 @@ import imef.data.data_manipulation as dm
 import visualizations.plot_nc_data as xrplot
 import visualizations.visualizations as vis
 
-# works for whatever index/bins now. Coolio
+
 def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9])):
-    fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False)
-    plt.xticks(bins)
+    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
+    # this doesn't seem to be working as intended
+    # plt.xticks(bins)
     ax = axes[0][0]
     ax.hist(data[index].values, bins=bins)
-    ax.set_xlabel(index + ' Bin Sizes')
-    ax.set_ylabel("# of Data Points in Each " + index + " Range")
+    ax.set_xlabel(index + " (nT)")
+    ax.set_ylabel('Number of Data Points')
+
+    ax2 = axes[0][1]
+    bins2 = np.arange(bins[0], bins[-1])
+    ax2.hist(data[index].values, bins2, histtype='step', cumulative=True, orientation='horizontal')
+    ax2.set_xlabel('Cumulative Number of Data Points')
+    ax2.set_ylabel(index + " (nT)")
 
     plt.show()
 
@@ -164,10 +171,10 @@ def calculate_and_plot_potential(data):
     xcart2cyl = dm.xform_cart2cyl(cart_grid)
 
     # get the convective electric field
-    E_convection = data['E_convective_mean']
+    E_convection = data['E_con_mean']
 
     # plot electric field
-    plot_efield(data, 'E_convective_mean', count=False)
+    plot_efield(data, 'E_con_mean', count=False)
 
     # reshape the data so that it will work with the conversion function
     E_convection_reshaped = xr.DataArray(E_convection.values.reshape(number_of_bins, 3), dims=['time', 'cart'],
@@ -181,13 +188,13 @@ def calculate_and_plot_potential(data):
     data_polar_split = xr.DataArray(E_convection_polar.values.reshape(r_bins, theta_bins, 3), dims=['r', 'theta', 'cart'],
                                     coords={'r': data['r'], 'theta': data['theta'] * (12 / np.pi),
                                             'cart': data['cart']})
-    imef_data['E_convection_polar'] = data_polar_split
+    imef_data['E_con_polar'] = data_polar_split
     imef_data = imef_data.rename({'r': 'L', 'theta': 'MLT'})
-    variable_name = 'E_convection_polar'
+    variable_name = 'E_con_polar'
 
     otherL, otherMLT = xr.broadcast(imef_data['L'], imef_data['MLT'])
 
-    imef_data['E_convection_polar'] = imef_data['E_convection_polar'].fillna(0)
+    imef_data['E_conv_polar'] = imef_data['E_con_polar'].fillna(0)
 
     # calculate the electric potential and plot
     V = dm.calculate_potential(imef_data, variable_name)
@@ -195,14 +202,12 @@ def calculate_and_plot_potential(data):
 
 
 def main():
-    data = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000.nc')
-    data_binned_nk = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000_binned_r_theta.nc')
-    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000_binned_r_theta_kp.nc')
-    data_binned_nt = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150910000000_20160101000000_binned_r_kp.nc')
+    data = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000.nc')
+    data_binned_nk = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta.nc')
+    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_kp.nc')
+    data_binned_nt = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_kp.nc')
 
-    other_binned = xr.open_dataset('example_datasets/mms1_imef_srvy_l2_5sec_20150915000000_20210101000000_binned_r_theta_kp.nc')
-
-    # There is none in 40-60 for dst
+    # There is none in 40-60 for Dst, but is for Sym-H
     create_histogram(data, index='Sym-H', bins=np.array([-140, -120, -100, -80, -60, -40, -20, 0, 20, 40, 60]))
 
     calculate_and_plot_potential(data_binned_nk)
@@ -210,10 +215,10 @@ def main():
     fig, axes = vis.plot_global_efield_one(data_binned_nk, None)
     plt.show()
 
-    fig, axes = vis.plot_global_counts_kp(data_binned, varname='E_convective')
+    fig, axes = vis.plot_global_counts_kp(data_binned, varname='E_con')
     plt.show()
 
-    fig, axes = vis.plot_efield_r_kp(data_binned, 'E_convective')
+    fig, axes = vis.plot_efield_r_kp(data_binned, 'E_con')
     plt.show()
 
 
