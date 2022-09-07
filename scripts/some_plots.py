@@ -6,20 +6,41 @@ import visualizations.plot_nc_data as xrplot
 import visualizations.visualizations as vis
 
 
-def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9])):
+def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9]), checkmarks=np.array([.25, .5, .75, 1])):
     fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
-    # this doesn't seem to be working as intended
+    # matplotlib is limited here. maybe move to datashader or holoviews so that the binning can be done better (.5 just duplicates the values. Maybe numpy?)
+    ax2 = axes[0][1]
+    bins2 = np.arange(bins[0], bins[-1])
+    returned = ax2.hist(data[index].values, bins2, histtype='step', cumulative=True, orientation='horizontal')
+    counts = returned[0]
+    x_ticks = returned[1]
+    ax2.set_xlabel('Cumulative Number of Data Points')
+    ax2.set_ylabel(index + " (nT)")
+
+    total_counts = counts[-1]
+
+    checkmark_counter = 0
+    counts_counter = 0
+    new_bins=np.array([-160])
+    while checkmark_counter < len(checkmarks):
+        count_marker = checkmarks[checkmark_counter] * total_counts
+        if counts[counts_counter] >= count_marker:
+            if int(checkmarks[checkmark_counter]) != 1:
+                ax2.hlines(y=x_ticks[counts_counter], xmin=0, xmax=counts[counts_counter])
+            ax2.vlines(x=counts[counts_counter], ymin=bins[0], ymax=x_ticks[counts_counter])
+            new_bins = np.append(new_bins, x_ticks[counts_counter])
+            checkmark_counter += 1
+        counts_counter += 1
+
+
+    # fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
+    # this line doesn't seem to be working as intended
     # plt.xticks(bins)
     ax = axes[0][0]
     ax.hist(data[index].values, bins=bins)
-    ax.set_xlabel(index + " (nT)")
     ax.set_ylabel('Number of Data Points')
 
-    ax2 = axes[0][1]
-    bins2 = np.arange(bins[0], bins[-1])
-    ax2.hist(data[index].values, bins2, histtype='step', cumulative=True, orientation='horizontal')
-    ax2.set_xlabel('Cumulative Number of Data Points')
-    ax2.set_ylabel(index + " (nT)")
+
 
     plt.show()
 
@@ -208,7 +229,7 @@ def main():
     data_binned_nt = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_kp.nc')
 
     # There is none in 40-60 for Dst, but is for Sym-H
-    create_histogram(data, index='Sym-H', bins=np.array([-140, -120, -100, -80, -60, -40, -20, 0, 20, 40, 60]))
+    create_histogram(data, index='Sym-H', bins=np.arange(-140, 60, 2))
 
     calculate_and_plot_potential(data_binned_nk)
 

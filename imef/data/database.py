@@ -10,6 +10,8 @@ import os
 import imef.data.download_data as dd
 import imef.data.data_manipulation as dm
 
+from pymms.data.util import NoVariablesInFileError
+
 data_dir = Path('~/data/imef/').expanduser()
 if not data_dir.exists():
     data_dir.mkdir(parents=True)
@@ -272,6 +274,10 @@ def multi_interval(sc, mode, level, t0, t1,
         try:
             data.append(one_interval(sc, mode, level, t_start, t_end,
                                      dt_out=dt_out))
+        except NoVariablesInFileError:
+            # If there is no data in the mms files, get the index data, and get the edi, fgm, etc but with nans for all the values
+            data.append(one_index_interval(sc, mode, level, t_start, t_end,
+                                     dt_out=dt_out, nans=True))
         except Exception as E:
             # raise E
             print('Error during interval {0} - {1}'
@@ -528,3 +534,105 @@ def predict_efield_and_potential(model, time=None, data=None, return_pred = True
 
     if return_pred == True:
         return imef_data, potential
+
+
+def one_index_interval(sc, mode, level, t0, t1, dt_out=None, nans=False):
+    '''
+    Download and read data required by the IMEF model to a netCDF file.
+
+    Parameters
+    ----------
+    sc : str
+        Spacecraft identifier (mms1, mms2, mms3, mms4)
+    mode : str
+        Data rate mode (srvy, brst)
+    level : str
+        Data level (l1a, l2)
+    t0, t1 : `datetime.datetime`
+        Start and end times of the data interval to download
+    dt_out : `datetime.timedelta`, default=5s
+        Sampling interval to which the data will be resampled
+
+    Returns
+    -------
+    data : `xarray.Dataset`
+        The requested data.
+    '''
+
+    kp_data = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
+    dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
+    omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
+    orbit_data = dd.get_orbit_number(sc, t0, t1, dt_out=dt_out)
+
+    if nans==False:
+        return xr.Dataset({'Kp': kp_data,
+                    'Dst': dst_data,
+                    'Sym-H': omni_data['Sym-H'],
+                    'AE': omni_data['AE'],
+                    'AL': omni_data['AL'],
+                    'AU': omni_data['AU'],
+                    'IEF': omni_data['IEF']})
+
+    else:
+        # THIS MAY NOT BE THE BEST WAY TO DO IT. BUT ITS HOW IM GONNA DO IT FOR NOW
+        # IN THE FUTURE IT WOULD BE BETTER TO NOT DOWNLOAD THIS DATA AND INSTEAD MAKE THE DATASETS FROM SCRATCH
+        # These data points download data for a specific day that I know has data in it.
+        example_t0 = dt.datetime(2015, 9, 10)
+        example_t1 = dt.datetime(2015, 9, 11)
+        example_mode = 'srvy'
+        example_level = 'l2'
+        example_edi_data = dd.get_data('mms1', 'edi', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+        example_fgm_data = dd.get_data('mms1', 'fgm', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+        example_mec_data = dd.get_data('mms1', 'mec', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+        example_dis_data = dd.get_data('mms1', 'dis', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+        example_des_data = dd.get_data('mms1', 'des', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+        example_edp_data = dd.get_data('mms1', 'edp', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+        example_scpot_data = dd.get_data('mms1', 'scpot', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
+
+        # Replace all the values with nan for each of these variables, since we don't have them for these times
+        example_edi_data['E_GSE'].values = np.full_like(example_edi_data['E_GSE'], np.nan)
+        example_fgm_data['B_GSE'].values = np.full_like(example_fgm_data['B_GSE'], np.nan)
+        example_mec_data['L'].values = np.full_like(example_mec_data['L'], np.nan)
+        example_mec_data['MLT'].values = np.full_like(example_mec_data['MLT'], np.nan)
+        example_mec_data['R_sc'].values = np.full_like(example_mec_data['R_sc'], np.nan)
+        example_mec_data['V_sc'].values = np.full_like(example_mec_data['V_sc'], np.nan)
+        example_dis_data['V_DIS'].values = np.full_like(example_dis_data['V_DIS'], np.nan)
+        example_des_data['V_DES'].values = np.full_like(example_des_data['V_DES'], np.nan)
+        example_edp_data['E_GSE'].values = np.full_like(example_edp_data['E_GSE'], np.nan)
+        example_scpot_data.values = np.full_like(example_scpot_data, np.nan)
+
+        # IDK IF I NEED THESE LINES, BUT ILL LEAVE THEM INSTEAD OF MESSING WITH IT
+        # Get the corotation electric field
+        E_cor = dm.corotation_electric_field(example_mec_data['R_sc'])
+
+        # Get the spacecraft electric field
+        E_sc = dm.E_convection(-example_mec_data['V_sc'], example_fgm_data['B_GSE'][:, 0:3])
+
+        E_con = example_edi_data['E_GSE'] - E_cor - E_sc
+
+        # Calculate the plasma convection field
+        E_DIS = dm.E_convection(example_dis_data['V_DIS'],
+                                example_fgm_data['B_GSE'][:, 0:3].reindex_like(example_dis_data['V_DIS']))
+        E_DES = dm.E_convection(example_des_data['V_DES'],
+                                example_fgm_data['B_GSE'][:, 0:3].reindex_like(example_des_data['V_DES']))
+
+        return xr.Dataset({'E_EDI': example_edi_data['E_GSE'],
+                           'B_GSE': example_fgm_data['B_GSE'],
+                           'E_cor': E_cor,
+                           'E_sc': E_sc,
+                           'E_con': E_con,
+                           'E_DIS': E_DIS,
+                           'E_DES': E_DES,
+                           'E_EDP': example_edp_data['E_GSE'],
+                           'Kp': kp_data,
+                           'Dst': dst_data,
+                           'Sym-H': omni_data['Sym-H'],
+                           'AE': omni_data['AE'],
+                           'AL': omni_data['AL'],
+                           'AU': omni_data['AU'],
+                           'IEF': omni_data['IEF'],
+                           'Scpot': example_scpot_data,
+                           'R_sc': example_mec_data['R_sc'],
+                           'V_sc': example_mec_data['V_sc'],
+                           'L': example_mec_data['L'],
+                           'MLT': example_mec_data['MLT']})

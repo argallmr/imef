@@ -61,6 +61,8 @@ def train_NN(args):
     random = args.random
     kfold = args.kfold
     adam=args.adam
+    undersample = args.random_undersampling
+    quiet_storm_ratio = args.quiet_storm_ratio
 
     # Create a list containing all the geomagnetic indices the user wants
     if values_to_use=='All':
@@ -70,10 +72,15 @@ def train_NN(args):
     else:
         values_to_use = [values_to_use]
 
+    if undersample == True:
+        undersample_ratio = quiet_storm_ratio
+    else:
+        undersample_ratio = None
+
     # For every file given by the user, open it, gather the necessary inputs that will train the neural network, and create one object containing all of that data
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
-        one_file_inputs, one_file_targets = dm.get_NN_inputs(total_data, use_values=values_to_use)
+        one_file_inputs, one_file_targets = dm.get_NN_inputs(total_data, use_values=values_to_use, undersample=undersample_ratio)
         if train_filename == train_filename_list[0]:
             total_inputs = one_file_inputs
             total_targets = one_file_targets
@@ -291,6 +298,16 @@ def main():
                         default=1000,
                         type=int,
                         help='the number times to iterate over the dataset',
+                        )
+
+    parser.add_argument('-ru', '--random_undersampling', help='Randomly undersample the data file given, such that the quiet time data and storm time data are made more balanced',
+                        action='store_true',
+                        )
+
+    parser.add_argument('-qsr', '--quiet_storm_ratio',
+                        default=1,
+                        type=float,
+                        help='Ratio of quiet versus storm time data. Default is 1. Does nothing if -ru is not used',
                         )
 
     args = parser.parse_args()

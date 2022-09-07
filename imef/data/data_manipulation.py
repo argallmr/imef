@@ -1408,8 +1408,9 @@ def slice_symh_data(full_data, ti, te, binned=False):
     return time_list, symh_list
 
 
-def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=['Kp'], usetorch=True):
+def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=['Kp'], usetorch=True, undersample=None):
     # This could be made way more efficient if I were to make the function not store all the data even if it isn't used. But for sake of understandability (which this has little of anyways)
+    # the random_undersampling argument should be a float, if it is not none. The float represents the quiet_storm_ratio
 
     if 'Kp' in use_values:
         Kp_data = imef_data['Kp']
@@ -1420,6 +1421,8 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
 
     if remove_nan == True:
         imef_data = imef_data.where(np.isnan(imef_data['E_con'][:, 0]) == False, drop=True)
+    if undersample != None:
+        imef_data = random_undersampling(imef_data, quiet_storm_ratio=undersample)
 
     # Note that the first bits of data cannot be used, because the first 60 times dont have Kp values and whatnot. Will become negligible when done on a large amount of data
     imef_data = imef_data.where(imef_data['time']>=(imef_data['time'].values[0]+np.timedelta64(5, 'h')), drop=True)
@@ -1429,7 +1432,6 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
     for counter in range(0, len(imef_data['time'].values)):
         new_data_line = []
         time_intervals = pd.date_range(end=imef_data['time'].values[counter], freq='5T', periods=60)
-        # print(time_intervals)
         try:
             if 'Kp' in use_values:
                 Kp_index_data = Kp_data.sel(time=time_intervals).values.tolist()
@@ -1516,3 +1518,67 @@ def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=None):
         counter+=1
 
     return dips
+
+
+def reverse_bins(bins, length_of_data):
+    reversed_bins = []
+    counter = 0
+
+    while counter < len(bins):
+        if counter == 0:
+            # put first bin in list (if needed)
+            if bins[0][0] == 0:
+                pass
+            else:
+                reversed_bins.append([0, bins[0][0]])
+        else:
+            # Put reversed bins in list
+            reversed_bins.append([bins[counter - 1][1], bins[counter][0]])
+        counter += 1
+
+    # put last bin in list (if needed)
+    if bins[-1][1] != length_of_data:
+        reversed_bins.append([bins[-1][1], length_of_data])
+
+    return reversed_bins
+
+
+# only works for dst right now
+def random_undersampling(data, threshold=-40, quiet_storm_ratio=1.0):
+    # Tbh not quite sure if I understood the algorithm correctly. It does what I think it wants, so I'll stick with it for now.
+    # To be clear, this definitely undersamples the data. However the way I do it is by reducing the number of datapoints in each bin by a certain percentage. The authors may not do the same
+    # But here is the link in case it's needed: https://link.springer.com/article/10.1007/s41060-017-0044-3
+
+    intervals_of_storm_data = get_storm_intervals(data, threshold=threshold)
+    storm_counts=0
+    for start, end in intervals_of_storm_data:
+        storm_counts += end-start
+    quiet_counts=len(data['time'])-storm_counts
+    print('we are here')
+
+    if quiet_counts > storm_counts:
+        bins_to_undersample = reverse_bins(intervals_of_storm_data, len(data['time']))
+        percent_to_reduce = quiet_storm_ratio * storm_counts / quiet_counts
+
+        if percent_to_reduce >= 1:
+            raise ValueError('quiet_storm_ratio is too large. The max value for this dataset is '+str(quiet_counts/storm_counts))
+        elif percent_to_reduce <= 0:
+            raise ValueError('quiet_storm ratio is too small. It must be greater than 0')
+
+        all_times = []
+        for start, end in intervals_of_storm_data:
+            all_times.append(data['time'].values[start:end])
+        for start, end in bins_to_undersample:
+            new_times_in_bin = np.random.choice(data['time'][start:end], int(percent_to_reduce * (end - start)), replace=False)
+            all_times.append(new_times_in_bin)
+        all_times = np.concatenate(all_times)
+        all_times = np.sort(all_times)
+
+        undersampled_data = data.sel(time=all_times)
+        print('guucccii booyyyyyyy')
+
+        return undersampled_data
+    else:
+        print('aaaaaaaaaaaaaaaaaaaaaaa o no')
+        # I don't know if a) this will ever come up, or b) if this did come up, we would want to undersample the storm data. So raising error for now
+        raise Warning('There is more storm data than quiet data. Skipping undersampling.')
