@@ -195,7 +195,7 @@ def calculate_and_plot_potential(data):
     E_convection = data['E_con_mean']
 
     # plot electric field
-    plot_efield(data, 'E_con_mean', count=False)
+    # plot_efield(data, 'E_con_mean', count=False)
 
     # reshape the data so that it will work with the conversion function
     E_convection_reshaped = xr.DataArray(E_convection.values.reshape(number_of_bins, 3), dims=['time', 'cart'],
@@ -222,24 +222,194 @@ def calculate_and_plot_potential(data):
     plot_potential(V, otherL, otherMLT)
 
 
+def plot_global_efield_kp(ds, varname='E_EDI_corot'):
+    '''
+    Create a polar plot of the Electric field vectors binned in (r, theta) space.
+
+    Parameters
+    ----------
+    ds : `xarray.Dataset`
+        Data to be plotted, including the r and theta bins.
+    varname : str
+        Name of the variable to be plotted
+
+    Returns
+    -------
+    fig : matplotlib figure
+        Figure object
+    axes : matplotlib subplots
+        Axes in which the counts and electric field are plotted
+    '''
+
+    fig, axes = plt.subplots(nrows=3, ncols=3, squeeze=False, figsize=(7, 7),
+                             subplot_kw=dict(projection='polar'))
+    plt.subplots_adjust(wspace=0.6, hspace=0.65, bottom=0.1)
+
+    for idx, E in enumerate(ds[varname + '_mean']):
+        irow = idx // 3
+        icol = idx % 3
+        ax = axes[irow, icol]
+
+        ax_title = 'kp=[{0},{1}-]'.format(np.ceil(ds['Kp'][idx].data),
+                                          np.ceil(ds['Kp'][idx].data) + 1)
+
+        plot_global_efield_one(E, ds[varname + '_counts'][idx, ...],
+                               axes=ax, plot_counts=False)
+
+        ax.set_title(ax_title)
+
+        if ~ax.is_last_row():
+            ax.set_xlabel('')
+        #            ax.set_xticklabels([])
+
+        if ~ax.is_first_col():
+            ax.set_ylabel('')
+
+    # Last plot
+    ax = axes[-1, -1]
+    ax.set_title('Kp=[0,9-]')
+    ax.set_xlabel('')
+
+    # Average over the remaining theta bins
+    data = xr.DataArray(np.ma.average(ds[varname + '_mean'].to_masked_array(), axis=0,
+                                      weights=ds[varname + '_counts']),
+                        dims=('r', 'theta', 'comp'),
+                        coords={'r': ds['r'],
+                                'theta': ds['theta'],
+                                'comp': ds['comp']})
+
+    # Sum all counts over the theta dimension
+    cts = np.sum(ds[varname + '_counts'], axis=0)
+    cts = cts.where(cts != 0)
+
+    plot_global_efield_one(data, cts,
+                           axes=ax, plot_counts=False)
+
+    return fig, axes
+
+def plot_global_efield_one(E, counts, axes=None, plot_counts=False):
+    '''
+    Create a polar plot of the Electric field vectors binned in (r, theta) space.
+
+    Parameters
+    ----------
+    ds : `xarray.Dataset`
+        Data to be plotted, including the r and theta bins.
+    varname : str
+        Name of the variable to be plotted
+
+    Returns
+    -------
+    fig : matplotlib figure
+        Figure object
+    axes : matplotlib subplots
+        Axes in which the counts and electric field are plotted
+    '''
+    # Create the axes
+    if axes is None:
+        # Number of columns
+        #   - Irrelevant if axes is given
+        ncols = 1
+        if plot_counts:
+            ncols = 2
+
+        # Create the figure
+        fig, axes = plt.subplots(nrows=1, ncols=ncols, squeeze=False, figsize=(6.5, 4),
+                                 subplot_kw=dict(projection='polar'))
+        plt.subplots_adjust(wspace=0.33, bottom=0.15, right=0.85)
+
+        # Assign the axes
+        ax = axes[0, 0]
+        if plot_counts:
+            ax_cts = axes[0, 1]
+
+    # Axes were given
+    else:
+
+        # Assign the axes
+        if plot_counts:
+            ax = axes[0]
+            ax_cts = axes[1]
+        else:
+            ax = axes
+
+        # Get the figure
+        fig = ax.figure
+
+    # Global Electric Field
+    ax.quiver(E['theta'], E['r'], E.values[..., 0], E.values[..., 1])
+    # ax.quiver(E['theta'], E['r'], E[..., 0], E[..., 1])
+    ax.set_xlabel("Electric Field")
+    ax.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
+    ax.set_theta_direction(1)
+
+    # Draw the earth
+    draw_earth_pol(ax)
+
+    # Counts
+    if plot_counts:
+        plot_global_counts_one(counts[..., 0], axes=ax_cts)
+
+    return fig, axes
+
+def draw_earth_pol(ax):
+    '''
+    A handy function for drawing the Earth in a set of Polar Axes
+    '''
+    ax.fill_between(np.linspace(-np.pi / 2, np.pi / 2, 30), 0, np.ones(30), color='k')
+    ax.plot(np.linspace(np.pi / 2, 3 * np.pi / 2, 30), np.ones(30), color='k')
+
+def plot_global_counts_one(counts, axes=None):
+    if axes is None:
+        fix, axes = plt.subplots(nrows=1, ncols=1, squeeze=False,
+                                 subplot_kw=dict(projection='polar'))
+        ax = axes[0, 0]
+    else:
+        ax = axes
+        fig = ax.figure
+
+    log_counts = np.ma.log(counts)
+
+    im = ax.pcolormesh(counts['theta'], counts['r'], log_counts,
+                       cmap='YlOrRd', shading='auto')
+    ax.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
+    ax.set_xlabel("log$_{10}$(Counts)")
+
+    draw_earth_pol(ax)
+
+    vis.add_colorbar(ax, im, wpad=1.3)
+
+    return fig, axes
+
+
 def main():
     data = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000.nc')
     data_binned_nk = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta.nc')
-    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_kp.nc')
-    data_binned_nt = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_kp.nc')
+    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_Kp.nc')
+    # data_binned_nt = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_Kp.nc')
+
+    # data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_Dst.nc')
+
+    # data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_AL.nc')
+
+    # data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_IEF.nc')
 
     # There is none in 40-60 for Dst, but is for Sym-H
-    create_histogram(data, index='Sym-H', bins=np.arange(-140, 60, 2))
+    # create_histogram(data, index='Sym-H', bins=np.arange(-140, 60, 2))
+    #
+    # calculate_and_plot_potential(data_binned_nk)
+    #
+    # fig, axes = vis.plot_global_efield_one(data_binned_nk, None)
+    # plt.show()
+    #
+    # fig, axes = vis.plot_global_counts_index(data_binned, varname='E_con', index='Kp')
+    # plt.show()
 
-    calculate_and_plot_potential(data_binned_nk)
+    # print(data_binned['AL'])
 
-    fig, axes = vis.plot_global_efield_one(data_binned_nk, None)
-    plt.show()
+    # fig, axes = vis.plot_efield_r_index(data_binned, 'E_con', index='Kp')
 
-    fig, axes = vis.plot_global_counts_kp(data_binned, varname='E_con')
-    plt.show()
-
-    fig, axes = vis.plot_efield_r_kp(data_binned, 'E_con')
+    plot_global_efield_kp(data_binned, varname='E_con')
     plt.show()
 
 

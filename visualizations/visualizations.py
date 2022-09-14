@@ -454,8 +454,8 @@ def plot_global_counts_kp(ds, varname='E_EDI_corot'):
         icol = idx % 3
         ax = axes[irow, icol]
 
-        ax_title = 'kp=[{0},{1}-]'.format(np.ceil(ds['kp'][idx].data),
-                                          np.ceil(ds['kp'][idx].data) + 1)
+        ax_title = 'kp=[{0},{1}-]'.format(np.ceil(ds['Kp'][idx].data),
+                                          np.ceil(ds['Kp'][idx].data) + 1)
 
         plot_global_counts_one(cts[..., 0], axes=ax)
 
@@ -907,3 +907,197 @@ def plot_vector_ts(axes, E, scatter=False, label='', title='', color=None):
         ax.plot(E['time'].data, E.loc[:, 'z'], label=label, color=color)
     ax.set_ylabel('Ez\n(mV/m)')
     format_axes(ax)
+
+
+def plot_efield_r_index(ds, varname, index='Kp', MLT_range=None):
+    '''
+    '''
+    # Subset in MLT
+    if MLT_range is not None:
+        theta_min = MLT_range[0] * 2 * np.pi / 24
+        theta_max = MLT_range[1] * 2 * np.pi / 24
+        if theta_min > theta_max:
+            ds = ds.isel({'theta': (ds['theta'] >= theta_min)
+                                   | (ds['theta'] <= theta_max)})
+        else:
+            ds = ds.isel({'theta': (ds['theta'] <= theta_min)
+                                   & (ds['theta'] >= theta_max)})
+    else:
+        MLT_range = [0, 24]
+
+    # Create the figure
+    fig, axes = plt.subplots(nrows=2, ncols=2, squeeze=False, figsize=(6.5, 5))
+    fig.suptitle('MLT = [{0:3.1f}, {1:3.1f}]'
+                 .format(MLT_range[0], MLT_range[1]))
+    plt.subplots_adjust(wspace=0.33, hspace=0.2, right=0.8, top=0.93)
+
+    # Plot a component
+    for c in ds.comp.data:
+        if c == 'x':
+            ax = axes[0, 0]
+            ax_one = ax
+            plot_counts = False
+            legend = False
+            label = 'Ex'
+        elif c == 'y':
+            ax = axes[0, 1]
+            ax_one = ax
+            plot_counts = False
+            legend = True
+            label = 'Ey'
+        elif c == 'z':
+            ax = axes[1, 0]
+            ax_cts = axes[1, 1]
+            ax_one = [ax, ax_cts]
+            plot_counts = True
+            legend = False
+            label = 'Ez'
+
+        plot_efield_r_index_one(ds[varname + '_mean'].loc[..., c],
+                             ds[varname + '_counts'].loc[..., c],
+                             index=index, axes=ax_one, plot_counts=plot_counts, legend=legend)
+
+        ax.set_ylabel(label + ' (mV/m)')
+
+        if not ax.is_last_row():
+            ax.set_xlabel('')
+            ax.set_xticklabels([])
+
+    return fig, axes
+
+
+def plot_efield_r_index_one(E, counts, index='Kp', axes=None, plot_counts=False, legend=False):
+    # Create the axes
+    if axes is None:
+        # Number of columns
+        #   - Irrelevant if axes is given
+        ncols = 1
+        if plot_counts:
+            ncols = 2
+
+        # Create the figure
+        fig, axes = plt.subplots(nrows=1, ncols=ncols, squeeze=False, figsize=(6.5, 4))
+        plt.subplots_adjust(wspace=0.33, bottom=0.15, right=0.85)
+
+        # Assign the axes
+        ax = axes[0, 0]
+        if plot_counts:
+            ax_cts = axes[0, 1]
+
+    # Axes were given
+    else:
+
+        # Assign the axes
+        if plot_counts:
+            ax = axes[0]
+            ax_cts = axes[1]
+        else:
+            ax = axes
+
+        # Get the figure
+        fig = ax.figure
+
+    # Create the line plot
+    r_min = np.inf
+    for ikp, E_kp in enumerate(E):
+        # Average over the remaining theta bins
+        data = np.ma.average(E_kp.to_masked_array(), axis=1,
+                             weights=counts[ikp, ...])
+
+        # Sum all counts over the theta dimension
+        cts = np.sum(counts[ikp, ...], axis=1)
+        cts = cts.where(cts != 0)
+
+        # Minimum radial distance
+        try:
+            r_min_temp = next(r for r, e in zip(E['r'].data, np.ma.getmask(data)) if not e)
+            r_min = min(r_min, r_min_temp)
+        except:
+            # If there is no data in this kp range, skip this line and go to the next.
+            continue
+
+        # Label for the Kp bin
+        kp_min = np.ceil(E[index].data[ikp])
+        #totally not the best way to do it, but what im doing under time restrictions
+        try:
+            kp_max = np.ceil(E[index].data[ikp+1])
+        except IndexError:
+            # add more indices and end values if I need
+            if index=='Kp':
+                kp_max = 9
+            if index=='AL':
+                kp_max = 500
+
+        #        if ikp == len(ds['kp']) - 2:
+        #            kp_max = np.floor(ds['kp'][ikp+1])
+        label = '{0} to {1}-'.format(kp_min, kp_max)
+
+        # Plot E(r) at each Kp bin
+        ax.plot(E_kp['r'], data, label=label, marker='*')
+
+        # Plot counts(r) at each Kp bin
+        if plot_counts:
+            ax_cts.plot(E['r'], cts, label=label, marker='*')
+
+    # Adjust the plot
+    ax.set_xlabel('R ($R_{E}$)')
+    ax.set_xlim(np.floor(r_min), np.ceil(E['r'][-1]))
+    ax.set_ylabel('E (mV/m)')
+
+    # Adjust the counts plot
+    if plot_counts:
+        ax_cts.set_xlabel('R ($R_{E}$)')
+        ax_cts.set_xlim(np.floor(r_min), np.ceil(E['r'][-1]))
+        ax_cts.set_ylabel('Counts')
+        ax_cts.set_yscale('log')
+
+    # Add a legend
+    if legend:
+        if plot_counts:
+            add_legend(ax_cts, outside=True, title=index + ' Index')
+        else:
+            add_legend(ax, outside=True, title=index + ' Index')
+
+    return fig, axes
+
+
+def plot_global_counts_index(ds, index='Kp', varname='E_EDI_corot', nrows=None, ncols=None):
+    if nrows==None:
+        nrows = int(np.sqrt(len(ds[index])))+1
+    if ncols==None:
+        ncols = int(np.sqrt(len(ds[index]))) + 1
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False, figsize=(7, 7),
+                             subplot_kw=dict(projection='polar'))
+    plt.subplots_adjust(left=0.05, wspace=0.65, hspace=0.65, bottom=0.1)
+
+    for idx, cts in enumerate(ds[varname + '_counts']):
+        irow = idx // nrows
+        icol = idx % nrows
+        ax = axes[icol, irow]
+
+        ax_title = index+'=[{0},{1}-]'.format(np.ceil(ds[index][idx].data),
+                                          np.ceil(ds[index][idx].data) + 1)
+
+        plot_global_counts_one(cts[..., 0], axes=ax)
+
+        ax.set_title(ax_title)
+
+        if ~ax.is_last_row():
+            ax.set_xlabel('')
+        #            ax.set_xticklabels([])
+
+        if ~ax.is_first_col():
+            ax.set_ylabel('')
+
+    # Last plot
+    ax = axes[-1, -1]
+    ax.set_title(index+'=[0,9-]')
+    ax.set_xlabel('')
+
+    # Sum all counts over the theta dimension
+    cts = np.sum(ds[varname + '_counts'], axis=0)
+    cts = cts.where(cts != 0)
+
+    plot_global_counts_one(cts[..., 0], axes=ax)
+
+    return fig, axes

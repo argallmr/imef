@@ -8,7 +8,7 @@ import torch
 import pandas as pd
 
 # For debugging purposes
-np.set_printoptions(threshold=np.inf)
+# np.set_printoptions(threshold=np.inf)
 
 R_E = 6378.1  # km
 
@@ -1490,6 +1490,7 @@ def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=None):
     counter=0
     while counter < len(data[mode].values):
         if data[mode].values[counter] <=threshold:
+            print('FOUND ONE')
             loop=True
             another_counter=counter
             hours_under_thresh=0
@@ -1579,6 +1580,93 @@ def random_undersampling(data, threshold=-40, quiet_storm_ratio=1.0):
 
         return undersampled_data
     else:
-        print('aaaaaaaaaaaaaaaaaaaaaaa o no')
         # I don't know if a) this will ever come up, or b) if this did come up, we would want to undersample the storm data. So raising error for now
         raise Warning('There is more storm data than quiet data. Skipping undersampling.')
+
+
+def bin_index_r_theta(data, varname, index='Kp', r_range=(0, 10), dr=1, MLT_range=(0, 24), dMLT=1,
+                   index_bins=np.array([0, 0.67, 1.67, 2.67, 3.67, 4.67, 5.67, 6.67, 9.67])):
+    '''
+    Bin a variable in two dimensions, radial distance (r) and geomagnetic
+    index (Kp).
+
+    Parameters
+    ----------
+    data : `xarray.Dataset`
+        Dataset containing the data to be binned. Should contain `varname`,
+        'R_sc' (km) as the location at which each point was taken, and 'kp' as
+        the geomagnetic index recorded at each point.
+    varname : str
+        Name of the variable in `data` to be binned and averaged. NaN values
+        are ignored.
+    r_range : (2) tuple, default=(0, 10)
+        Radial range (R_E) over which to bin the data.
+    dr : int, default=1
+        Size of each radial bin (R_E)
+    MLT_range : (2) tuple, default=(0, 24)
+        MLT range (hrs) over which to keep the data: [min, max)
+    dMLT : int
+        Bin size in MLT (hrs)
+    kp_bins : list of floats
+        Bin edges of the Kp bins. Default bins are
+        [0, 0.67, 1.67, 2.67, 3.67, 4.67, 5.67, 6.67, 9.67] corresponding to
+        [0, 1-], [1, 2-], [2, 3-], [4, 5-], [5, 6-], [7, 10-]
+
+    Returns
+    -------
+    counts : (L, N, M), int
+        Number of points in each (kp, r) bin
+    avg : (L, N, M), float
+        Average value of `varname` in each bin
+    kp_bins : (L), float
+        Kp bin edges
+    r_bins : (M), float
+        Radial bin edges
+    theta_bins : (N)
+    '''
+
+    # Create the radial and azimuthal bins
+    r_bins = np.arange(r_range[0], r_range[1] + dr, dr)
+    theta_bins = np.arange(MLT_range[0], MLT_range[1] + dMLT, dMLT) * 2 * np.pi / 24
+
+    # Projection of the radial vector onto the xy-plane (ecliptic if GSE)
+    r_mms = np.sqrt(data['R_sc'][:, 0] ** 2 + data['R_sc'][:, 1] ** 2) / R_E
+    theta_mms = np.arctan2(data['R_sc'][:, 1], data['R_sc'][:, 0])
+    theta_mms = (2 * np.pi + theta_mms) % 2 * np.pi
+    sample = np.column_stack([data[index], r_mms, theta_mms])
+
+    # Find all NaN values to remove
+    igood = ~np.isnan(data[varname][:, 0].data)
+
+    # Loop over each component
+    bsr = None
+    counts = []
+    mean = []
+    for idx in range(len(data[data[varname].dims[1]])):
+        # counts
+        bsr = binned_statistic_dd(sample[igood, :],
+                                  values=data[varname][igood, idx].data,
+                                  statistic='count',
+                                  bins=[index_bins, r_bins, theta_bins],
+                                  binned_statistic_result=bsr)
+
+        # Average value
+        avg, bin_edges, num = (
+            binned_statistic_dd(sample[igood, :],
+                                values=data[varname][igood, idx].data,
+                                statistic='mean',
+                                binned_statistic_result=bsr)
+        )
+
+        # Store the results for each component
+        counts.append(bsr[0])
+        mean.append(avg)
+
+    ds = xr.Dataset({varname + '_mean': ((index, 'r', 'theta', 'comp'), np.stack(mean, axis=3)),
+                     varname + '_counts': ((index, 'r', 'theta', 'comp'), np.stack(counts, axis=3))},
+                    coords={index: index_bins[:-1],
+                            'r': r_bins[:-1] + dr / 2,
+                            'theta': theta_bins[:-1] + dMLT * 2 * np.pi / 24 / 2,
+                            'comp': data[data[varname].dims[1]].data})
+
+    return ds

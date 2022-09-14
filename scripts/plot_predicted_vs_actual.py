@@ -45,11 +45,8 @@ def pred_w_linear_regression(dip, data, values_to_use):
 
 
 def plot_dips(dips, data, model, values_to_use, mode='Dst'):
-    # plot everything, then plot the dips
-    # for some reason the time version has a couple messed up areas. I don't think this is my fault, rather matplotlibs.
-    # Hopefully I just dont use this bit anyways and it doesnt matter
-
     for start, end in dips:
+        print('PLOTTING')
         fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
         fig.tight_layout()
         # dunno what this is, but pandas said to do it so here it is
@@ -77,6 +74,7 @@ def plot_dips(dips, data, model, values_to_use, mode='Dst'):
         ax2.plot(data['time'].values[start:end], np.sqrt(LR_predicted[:,0]**2 + LR_predicted[:,1]**2 + LR_predicted[:,2]**2), label='Linear Regression')
 
         NN_predicted = pred_w_NN([start,end], data, model, values_to_use)
+
         ax2.plot(data['time'].values[start:end],np.sqrt(NN_predicted[:, 0] ** 2 + NN_predicted[:, 1] ** 2 + NN_predicted[:, 2] ** 2),label='Neural Network')
 
         my_xticks = ax2.get_xticks()
@@ -111,11 +109,7 @@ def main():
     layers = model_filename.split('$')[0].split('-')
     values_to_use = model_filename.split('$')[1].split('-')
 
-    # change this to be 183 when symh is involved
-    if values_to_use[0] == 'All':
-        NN_layout = np.array([123])
-    else:
-        NN_layout = np.array([60 * len(values_to_use) + 3])
+    NN_layout = np.array([60 * len(values_to_use) + 3])
 
     NN_layout = np.append(NN_layout, np.array(layers))
     NN_layout = np.append(NN_layout, np.array([3])).astype(int)
@@ -138,6 +132,7 @@ def main():
     data = xr.open_dataset(input_filename)
 
     dips=get_storm_intervals(data, max_hours=24)
+    print('DONE ALL')
     plot_dips(dips, data, model, values_to_use)
 
 

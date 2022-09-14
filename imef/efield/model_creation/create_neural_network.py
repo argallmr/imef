@@ -265,7 +265,7 @@ def main():
     parser.add_argument('input_filename', type=str, help='File name(s) of the data created by sample_data.py. If more than 1 file, use the format filename1,filename2,filename3 ... '
                                                          'Do not include file extension')
 
-    parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, and All')
+    parser.add_argument('input_list', type=str, help='Name(s) of the indices you want to be used in the NN. Options are: Kp, Dst, Symh, and All')
 
     parser.add_argument('layers', type=str, help='The number of nodes you want in each layer of your NN. Eg, a 3 layer NN would look something like 30,20,15. If you want to use linear regression, type LR instead')
 

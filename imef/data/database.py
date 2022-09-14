@@ -410,7 +410,7 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
     kp_data = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
     dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
     omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
-    orbit_data = dd.get_orbit_number(sc, t0, t1, dt_out=dt_out)
+    # orbit_data = dd.get_orbit_number(sc, t0, t1, dt_out=dt_out)
 
     # Get the corotation electric field
     E_cor = dm.corotation_electric_field(mec_data['R_sc'])
@@ -562,7 +562,6 @@ def one_index_interval(sc, mode, level, t0, t1, dt_out=None, nans=False):
     kp_data = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
     dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
     omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
-    orbit_data = dd.get_orbit_number(sc, t0, t1, dt_out=dt_out)
 
     if nans==False:
         return xr.Dataset({'Kp': kp_data,
