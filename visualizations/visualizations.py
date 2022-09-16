@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 from matplotlib import pyplot as plt, dates as mdates, ticker
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from scipy.stats import binned_statistic
 
 R_E = 6371.2  # Earth radius (km)
 
@@ -1101,3 +1102,128 @@ def plot_global_counts_index(ds, index='Kp', varname='E_EDI_corot', nrows=None, 
     plot_global_counts_one(cts[..., 0], axes=ax)
 
     return fig, axes
+
+
+def ief_holes_hist(data, index='Sym-H', separating_index='IEF', bins=np.arange(-180, 60), nantozero=True):
+    # This function plots all counts of all data (blue), counts of data where separating index exists (green), and counts where separating index doesn't exist (red) on the left plot
+    # It also plots the percentage of missing data in each given bin on the right
+    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
+    fig.tight_layout()
+
+    # Find all the points where the separating index is missing
+    nanarray = np.isnan(data[separating_index].values)
+
+    # separate index data by the separating index
+    symh = data[index].values
+    symh_noief = data[index].values[nanarray]
+    symh_ief = data[index].values[np.isnan(data[separating_index].values) == False]
+
+    # plot all counts of all data (blue), counts of data where separating index exists (green), and counts where separating index doesn't exist (red)
+    # note green may not appear if there are more missing values in a bin than not missing values
+    axes[0][0].hist(symh, bins=bins, log=True, color='blue')
+    axes[0][0].hist(symh_ief, bins=bins, log=True, color='green', alpha=1)
+    axes[0][0].hist(symh_noief, bins=bins, log=True, color='red', alpha=1)
+
+    # calculate the counts in each bin (could also be done by using the results of .hist above)
+    index_counts = binned_statistic(symh, symh, statistic='count', bins=bins)
+    index_noief_counts = binned_statistic(symh_noief, symh_noief, statistic='count', bins=bins)
+    percent_missing = index_noief_counts[0] / index_counts[0]
+    # If you don't do this the line plot will be disconnected since nan will be passed into plotting
+    if nantozero:
+        percent_missing = np.nan_to_num(percent_missing)
+
+    # plot the missing percentages
+    axes[0][1].plot(bins[:len(bins) - 1], 100 * percent_missing)
+    axes[0][1].set_xlabel(index + ' Bins')
+    axes[0][1].set_ylabel('Percent of Data Points Missing')
+
+    plt.show()
+
+
+def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9]), checkmarks=np.array([.25, .5, .75, 1])):
+    fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
+    fig.tight_layout()
+    # matplotlib is limited here. cannot bin with bin size < 1
+    ax2 = axes[0][1]
+    bins2 = np.arange(bins[0], bins[-1])
+
+    # calculate + plot cumulative counts of given index
+    returned = ax2.hist(data[index].values, bins2, histtype='step', cumulative=True, orientation='horizontal')
+    counts = returned[0]
+    x_ticks = returned[1]
+
+    total_counts = counts[-1]
+    checkmark_counter = 0
+    counts_counter = 0
+    new_bins=np.array([bins[-1]])
+    # make horizontal and vertical lines at each given checkpoint (note checkpoints are percentages of total counts)
+    while checkmark_counter < len(checkmarks):
+        count_marker = checkmarks[checkmark_counter] * total_counts
+        if counts[counts_counter] >= count_marker:
+            if int(checkmarks[checkmark_counter]) != 1:
+                ax2.hlines(y=x_ticks[counts_counter], xmin=0, xmax=counts[counts_counter])
+            ax2.vlines(x=counts[counts_counter], ymin=bins[0], ymax=x_ticks[counts_counter])
+            new_bins = np.append(new_bins, x_ticks[counts_counter])
+            checkmark_counter += 1
+        counts_counter += 1
+
+    ax2.set_xlabel('Cumulative Number of Data Points')
+    ax2.set_ylabel(index + " (nT)")
+
+    # plot the number of counts in each given bin
+    ax = axes[0][0]
+    ax.hist(data[index].values, bins=bins)
+    ax.set_ylabel('Number of Data Points')
+    ax.set_xlabel(index + " (nT)")
+
+    plt.show()
+
+
+def efield_vs_kp_plot(data, varname):
+    # Kp bin size must be 3
+
+    # Create some variables used for making the plot
+    nbins = int(3)
+
+    # Its 3
+    step = 9 / int(nbins)
+
+    # Helps with getting names of variables doing it this way
+    counter = 0
+
+    # This is the amount of graphs that this function will create. It depends on the number of coordinates (1 plot per coordinate). Polar has 2 (r, \theta), cartesian has 3 (x, y, z)
+    rounds=3
+
+    # This is for creating the axes values for the plot
+    phi = (data['theta'])
+    r = data['r']
+
+    # This plot is for the binned Kp values
+    fig, axes = plt.subplots(nrows=nbins, ncols=rounds, squeeze=False, subplot_kw=dict(projection='polar'))
+    fig.tight_layout()
+
+    r, phi = xr.broadcast(r, phi)
+
+    # Iterate through all rows (number of bins aka 3), and then all columns (aka coordinates)
+    for row in range(nbins):
+        for col in range(rounds):
+            ax = axes[row, col]
+            #  List of coordinates
+            list = ['x', 'y', 'z']
+
+            # plot the data
+            im = ax.pcolormesh(phi, r, data[varname+'_mean'].values[col, :, :, row], cmap='seismic', shading='auto', vmin=-2,
+                               vmax=2)  # These values may need to be changed
+
+            # For making the title
+            if col == 2:
+                ax.set_title('E'+list[row] + ' for Kp ['+str(3*col) +','+ str(3*(col+1))+']')
+            else:
+                ax.set_title('E'+list[row] + ' for Kp ['+str(3*col) +','+ str(3*(col+1))+')')
+
+        # increase the count so next range of Kp can be plotted
+        counter += step
+
+    # create a colorbar. Note that doing this on both plots doesn't work as you would hope as the colorbars are different. Not sure how to get the same colorbar onto the second plot
+    fig.colorbar(im, ax=axes.ravel().tolist())
+    plt.show()

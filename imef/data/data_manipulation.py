@@ -1286,17 +1286,33 @@ def get_C(min_Lvalue, max_Lvalue):
     return C
 
 
-def calculate_potential(imef_data, name_of_variable):
+def calculate_potential(imef_data, name_of_variable, min_max_L = None, polar=True):
+    # the polar argument is meant to represent whether the data passed as imef is in polar coordinates or not.
+    # If it is not, use polar=False and the function will convert it to polar
+
     # Determine the L range that the data uses
-    min_Lvalue = imef_data['L'][0].values
-    max_Lvalue = imef_data['L'][-1].values
+    if min_max_L == None:
+        try:
+            min_Lvalue = imef_data['L'][0, 0].values
+            max_Lvalue = imef_data['L'][-1,0].values
+        except:
+            min_Lvalue = imef_data['L'][0].values
+            max_Lvalue = imef_data['L'][-1].values
+    else:
+        min_Lvalue = min_max_L[0]
+        max_Lvalue = min_max_L[1]
+
+    nL = int(max_Lvalue - min_Lvalue + 1)
+
+    if polar==False:
+        imef_data = convert_to_polar(imef_data, name_of_variable)
+        name_of_variable = name_of_variable + '_polar'
 
     # Find the number of bins relative to L and MLT
     # nL is the number of L values in E, not Φ. So there will be nL+1 in places. There are 6 L values in E, but 7 in Φ (As L is taken at values of 4.5, 5.5, etc in E, but 4, 5, etc in Φ)
-    nL = int(max_Lvalue - min_Lvalue + 1)
     nMLT = 24
 
-    # Get the electric field data and make them into vectors. MUST BE POLAR COORDINATES
+    # Get the electric field data and make them into vectors
     E_r = imef_data[name_of_variable][:, :, 0].values.flatten()
     E_az = imef_data[name_of_variable][:, :, 1].values.flatten()
 
@@ -1670,3 +1686,44 @@ def bin_index_r_theta(data, varname, index='Kp', r_range=(0, 10), dr=1, MLT_rang
                             'comp': data[data[varname].dims[1]].data})
 
     return ds
+
+
+def convert_to_polar(data, varname):
+    r, phi = xr.broadcast(data['r'], data['theta'])
+    MLT = phi*12/np.pi
+
+    pred = data[varname].values
+
+    nMLT = 24
+    nL = int(r[-1, 0].values - r[0, 0].values + 1)
+
+    pred = pred.reshape(nL * nMLT, 3)
+
+    L = xr.DataArray(r.values, dims=['iL', 'iMLT'])
+    MLT = xr.DataArray(MLT.values, dims=['iL', 'iMLT'])
+
+    # create an empty dataset and insert the predicted cartesian values into it. the time coordinate is nonsensical, but it needs to be time so that rot2polar works
+    imef_data = xr.Dataset(coords={'L': L, 'MLT': MLT, 'polar': ['r', 'phi'], 'cartesian': ['x', 'y', 'z']})
+    testing_something = xr.DataArray(pred, dims=['time', 'cartesian'],
+                                     coords={'time': np.arange(0, nL*nMLT), 'cartesian': ['x', 'y', 'z']})
+
+    pred = pred.reshape(nL, nMLT, 3)
+
+    # Create another dataset containing the locations around the earth as variables instead of dimensions
+    imef_data[varname] = xr.DataArray(pred, dims=['iL', 'iMLT', 'cartesian'], coords={'L': L, 'MLT': MLT})
+    imef_data['R_sc'] = xr.DataArray(np.stack((r, phi), axis=-1).reshape(nL * nMLT, 2), dims=['time', 'polar'],
+                                     coords={'time': np.arange(0, nL*nMLT), 'polar': ['r', 'phi']})
+
+    pred.reshape(nL * nMLT, 3)
+
+    # have to make sure that this actually works correctly. cause otherwise imma be getting some bad stuff
+    # Convert the predicted cartesian values to polar
+    imef_data[varname+'_polar'] = rot2polar(testing_something, imef_data['R_sc'], 'cartesian').assign_coords(
+        {'polar': ['r', 'phi']})
+
+    # reshape the predicted polar data to be in terms of L and MLT, and put them into the same dataset
+    reshaped_polar = imef_data[varname+'_polar'].values.reshape(nL, nMLT, 2)
+    imef_data[varname+'_polar'] = xr.DataArray(reshaped_polar, dims=['iL', 'iMLT', 'polar'],
+                                                              coords={'L': L, 'MLT': MLT})
+
+    return imef_data

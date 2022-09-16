@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import xarray as xr
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
@@ -86,22 +87,29 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', count=True, log_c
     plt.show()
 
 
-def plot_potential(imef_data, V_data, im_test=None):
+def plot_potential(imef_data, V_data):
     # Note that it is expected that the electric field data is in polar coordinates. Otherwise the potential values are incorrect
 
     # find L and MLT range used in the data given
-    min_Lvalue = imef_data['L'][0, 0].values
-    max_Lvalue = imef_data['L'][-1, 0].values
+    try:
+        min_Lvalue = imef_data['L'][0][0].values
+        max_Lvalue = imef_data['L'][-1][0].values
+    except:
+        min_Lvalue = imef_data['r'][0].values
+        max_Lvalue = imef_data['r'][-1].values
     nL = int(max_Lvalue - min_Lvalue + 1)
 
-    min_MLTvalue = imef_data['MLT'][0, 0].values
-    max_MLTvalue = imef_data['MLT'][0, -1].values
-    nMLT = int(max_MLTvalue - min_MLTvalue + 1)
+    nMLT=24
 
     # Create a coordinate grid
-    new_values = imef_data['MLT'].values-.5
-    phi = (2 * np.pi * new_values / 24).reshape(nL, nMLT)
-    r = imef_data['L'].values.reshape(nL, nMLT)-.5
+    try:
+        new_values = imef_data['MLT'].values
+        phi = (2 * np.pi * new_values / 24).reshape(nL, nMLT)
+        r = imef_data['L'].values.reshape(nL, nMLT)
+    except:
+        phi_one = imef_data['theta']
+        r_one = imef_data['r']
+        r, phi = xr.broadcast(r_one, phi_one)
 
     extra_phi_value = phi[0][0]+2*np.pi
 
@@ -130,7 +138,7 @@ def plot_potential(imef_data, V_data, im_test=None):
     ax1.set_xlabel("Potential")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     # Plot the data. Note that new_V_data is multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    im = ax1.contourf(new_phi, new_r, new_V_data*-1, cmap='coolwarm', vmin=-25, vmax=25)
+    im = ax1.contourf(new_phi, new_r, new_V_data*-1, cmap='coolwarm', vmin=-5, vmax=5)
     # plt.clabel(im, inline=True, fontsize=8)
     # plt.imshow(new_V_data, extent=[-40, 12, 0, 10], cmap='RdGy', alpha=0.5)
     fig.colorbar(im, ax=ax1)
