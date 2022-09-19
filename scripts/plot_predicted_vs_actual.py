@@ -18,23 +18,6 @@ def pred_w_NN(dip, data, model, device, values_to_use):
     with torch.no_grad():
         pred = model(x)
 
-    # with torch.no_grad():
-    #     pred=None
-    #     # I THINK NOT HAVING .to(device) MAY BE WHY I AM PREDICTING DIFFERENT THINGS WHEN RUNNING AT THE SAME THINGS.
-    #     # MAYBE LOAD DATA INTO DATALOADER?
-    #     x = DataLoader(test_inputs, batch_size=1, shuffle=False)
-    #     for one_x in x:
-    #         one_x = one_x.to(device)
-    #         pred_one = model(one_x)
-    #         if pred==None:
-    #             pred = pred_one
-    #             print(pred)
-    #         else:
-    #             pred = torch.cat((pred, pred_one), 0)
-    print(pred)
-
-    print(type(pred))
-
     return pred
 
 
