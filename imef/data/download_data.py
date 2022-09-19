@@ -440,6 +440,9 @@ def read_txt_files(fname_list, local_location=None, mode='Kp'):
     if mode == 'Kp':
         header = 29
         footer = 0
+    if mode=='symh':
+        header=0
+        footer=0
 
     # Combine all of the needed files into one dataframe
     for fname in fname_list:

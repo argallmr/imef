@@ -13,6 +13,8 @@ def main():
 
     vis.ief_holes_hist(data, index='AL', bins = np.arange(-2000, 200, 20))
 
+    vis.ief_holes_hist(data)
+
     vis.create_histogram(data, index='Sym-H', bins=np.arange(-140, 60, 2))
 
     fig, axes = vis.plot_global_efield_one(data_binned_nk, None)

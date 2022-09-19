@@ -1124,6 +1124,9 @@ def ief_holes_hist(data, index='Sym-H', separating_index='IEF', bins=np.arange(-
     axes[0][0].hist(symh_ief, bins=bins, log=True, color='green', alpha=1)
     axes[0][0].hist(symh_noief, bins=bins, log=True, color='red', alpha=1)
 
+    axes[0][0].set_xlabel(index + ' Bins')
+    axes[0][0].set_ylabel('Number of Data Points')
+
     # calculate the counts in each bin (could also be done by using the results of .hist above)
     index_counts = binned_statistic(symh, symh, statistic='count', bins=bins)
     index_noief_counts = binned_statistic(symh_noief, symh_noief, statistic='count', bins=bins)

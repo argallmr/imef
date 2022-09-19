@@ -44,12 +44,17 @@ def main():
 
     data = xr.open_dataset(file + '.nc')
 
+
+    string_bins = [str(bin) for bin in bins]
+
+    str_of_bins = ",".join(string_bins)
+
     if notheta:
         binned_data = dm.bin_index_r_theta(data, 'E_con', index=index, dMLT=24, index_bins=bins)
         binned_data['E_con_mean'] = binned_data['E_con_mean'][:, :, 0, :]
         binned_data['E_con_counts'] = binned_data['E_con_counts'][:, :, 0, :]
         binned_data = binned_data.drop_vars('theta')
-        binned_filename = file + '_binned_r_' + index + '.nc'
+        binned_filename = file + '_binned_r_' + index + str_of_bins + '.nc'
     elif noindex:
         # By setting kp_bins to be the entire range of kp values, we get binned by only r_theta_cart
         binned_data = dm.bin_index_r_theta(data, 'E_con', index=index, index_bins=np.array([min(data[index].values)-1, max(data[index].values)+1]))
@@ -60,7 +65,7 @@ def main():
         binned_filename = file + '_binned_r_theta.nc'
     else:
         binned_data = dm.bin_index_r_theta(data, 'E_con', index=index, index_bins=bins)
-        binned_filename = file + '_binned_r_theta_' + index + '.nc'
+        binned_filename = file + '_binned_r_theta_' + index + str_of_bins + '.nc'
 
     binned_data.to_netcdf(binned_filename)
 

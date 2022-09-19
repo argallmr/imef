@@ -2,13 +2,14 @@ import numpy as np
 import xarray as xr
 import argparse
 import torch
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 import imef.efield.model_creation.Neural_Networks as NN
 from imef.data.data_manipulation import get_NN_inputs, get_storm_intervals
 from sklearn.linear_model import LinearRegression
 
-def pred_w_NN(dip, data, model, values_to_use):
+def pred_w_NN(dip, data, model, device, values_to_use):
     # would definitely be more efficient to slice data first, then put into get_inputs, but where is being a pain (it has the error that sample_data has been getting, I can't figure it out)
     test_inputs = get_NN_inputs(data, use_values=values_to_use, remove_nan=False, get_target_data=False)
     test_inputs = test_inputs[dip[0]:dip[1]]
@@ -16,6 +17,23 @@ def pred_w_NN(dip, data, model, values_to_use):
     x = test_inputs
     with torch.no_grad():
         pred = model(x)
+
+    # with torch.no_grad():
+    #     pred=None
+    #     # I THINK NOT HAVING .to(device) MAY BE WHY I AM PREDICTING DIFFERENT THINGS WHEN RUNNING AT THE SAME THINGS.
+    #     # MAYBE LOAD DATA INTO DATALOADER?
+    #     x = DataLoader(test_inputs, batch_size=1, shuffle=False)
+    #     for one_x in x:
+    #         one_x = one_x.to(device)
+    #         pred_one = model(one_x)
+    #         if pred==None:
+    #             pred = pred_one
+    #             print(pred)
+    #         else:
+    #             pred = torch.cat((pred, pred_one), 0)
+    print(pred)
+
+    print(type(pred))
 
     return pred
 
@@ -69,13 +87,15 @@ def plot_dips(dips, data, model, values_to_use, mode='Dst'):
         ax2.set_ylabel('||E||')
 
         # predict lin_reg in here, and return the predicted values.
-        LR_predicted = pred_w_linear_regression([start,end], data, values_to_use)
-
-        ax2.plot(data['time'].values[start:end], np.sqrt(LR_predicted[:,0]**2 + LR_predicted[:,1]**2 + LR_predicted[:,2]**2), label='Linear Regression')
-
+        # LR_predicted = pred_w_linear_regression([start,end], data, values_to_use)
+        #
+        # ax2.plot(data['time'].values[start:end], np.sqrt(LR_predicted[:,0]**2 + LR_predicted[:,1]**2 + LR_predicted[:,2]**2), label='Linear Regression')
+        print('PRED NN')
+        # ADD DEVICE
         NN_predicted = pred_w_NN([start,end], data, model, values_to_use)
-
+        print('PLOT NN')
         ax2.plot(data['time'].values[start:end],np.sqrt(NN_predicted[:, 0] ** 2 + NN_predicted[:, 1] ** 2 + NN_predicted[:, 2] ** 2),label='Neural Network')
+        print('MADE IT')
 
         my_xticks = ax2.get_xticks()
         ax2.set_xticks([my_xticks[0], my_xticks[-1]])
@@ -86,6 +106,7 @@ def plot_dips(dips, data, model, values_to_use, mode='Dst'):
     return dips
 
 def main():
+    # This program takes way too long if the data file is too big (5 second intervals for 9/1/15 to 7/1/22 results in way too long)
     parser = argparse.ArgumentParser(
         description='PUT DESCRIPTION HERE'
     )

@@ -59,7 +59,7 @@ def plot_potential_for_gif(imef_data, V_data, im_test=None):
     ax1.set_xlabel("Potential")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     # Plot the data. Note that new_V_data is multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    im = ax1.contourf(new_phi, new_r, new_V_data*-1, cmap='coolwarm', vmin=-25, vmax=25)
+    im = ax1.contourf(new_phi, new_r, new_V_data*-1, cmap='coolwarm', vmin=-10, vmax=10)
     # plt.clabel(im, inline=True, fontsize=8)
     # plt.imshow(new_V_data, extent=[-40, 12, 0, 10], cmap='RdGy', alpha=0.5)
     if im_test is not None:
@@ -86,7 +86,7 @@ def plot_potential_for_gif(imef_data, V_data, im_test=None):
 
 
 def get_good_colorplot(imef_data, V_data):
-
+    # this whole function is for the colorbar, I think. honestly idk
     min_Lvalue = imef_data['L'][0, 0].values
     max_Lvalue = imef_data['L'][-1, 0].values
     nL = int(max_Lvalue - min_Lvalue + 1)
@@ -104,7 +104,7 @@ def get_good_colorplot(imef_data, V_data):
 
     # The plot comes out missing a section since the coordinates do not completely go around the circle.
     # So we have to copy/paste the first plot point to the end of each of the lists so that the plot is complete
-    sign=1
+    sign=-1
     for counter in range(nL):
         add_to_r = np.append(r[counter], r[counter][0])
         add_to_phi = np.append(phi[0], extra_phi_value)
@@ -130,6 +130,7 @@ def get_good_colorplot(imef_data, V_data):
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     # Plot the data. Note that new_V_data is multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
     im = ax1.contourf(new_phi, new_r, new_V_data * -1, cmap='coolwarm', vmin=-25, vmax=25)
+    # plt.show()
 
     return im
 
@@ -197,7 +198,7 @@ def main():
 
     while ti <= end_time:
         # could be made slightly more accurate since predict and plot keeps downloading stuff over and over. Maybe download ti to te outside of predict and plot and use data arg?
-        imef_data, potential = predict_efield_and_potential(model, ti)
+        imef_data, potential = predict_efield_and_potential(model, ti, values_to_use=values_to_use)
         # this is for getting 1 good colorplot to use for every frame of the gif. Since the min and max V value is set to +-25 in plot_potential_for_gif, the colormap is the same in each frame
         # note this doesn't need to be run every time. I could run the first iteration of predict_and_plot outside the loop, run this once, then do while loop, but not really that big a deal
         im = get_good_colorplot(imef_data, potential)

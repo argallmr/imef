@@ -449,7 +449,7 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
                        'MLT': mec_data['MLT']})
 
 
-def predict_efield_and_potential(model, time=None, data=None, return_pred = True, number_of_inputs = 1):
+def predict_efield_and_potential(model, time=None, data=None, return_pred = True, number_of_inputs = 1, values_to_use=['Kp']):
     # A function that will take a model created by create_neural_network.py, and either a time or data argument,
     # and calculate the electric field and electric potential, plot them (if the user wants), and return the predicted values (if the user wants)
 
@@ -467,14 +467,16 @@ def predict_efield_and_potential(model, time=None, data=None, return_pred = True
         te = time + dt.timedelta(minutes=5)
 
         mec_data = dd.get_mec_data('mms1', 'srvy', 'l2', ti, te, binned=True)
-        kp_data = dd.get_kp_data(ti, te, expand=mec_data['time'].values)
-        dst_data = dd.get_dst_data(ti, te, expand=mec_data['time'].values)
+        kp_data = dd.get_kp_data_old(ti, te, expand=mec_data['time'].values)
+        dst_data = dd.get_dst_data_old(ti, te, expand=mec_data['time'].values)
+        symh_data = dd.get_symh_data_old(ti, te, expand=mec_data['time'].values)
 
-        complete_data = xr.merge([mec_data, kp_data, dst_data])
+        complete_data = xr.merge([mec_data, kp_data, dst_data, symh_data])
+        # complete_data = xr.merge([mec_data, kp_data])
     elif time is None and data is None:
         raise TypeError('Either the desired time or the appropriate data must be given')
 
-    test_inputs = dm.get_NN_inputs(complete_data, remove_nan=False, get_target_data=False)
+    test_inputs = dm.get_NN_inputs(complete_data, remove_nan=False, get_target_data=False, use_values=values_to_use)
 
     base_kp_values = test_inputs[-1].clone()
 
