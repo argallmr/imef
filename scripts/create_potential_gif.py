@@ -129,7 +129,7 @@ def get_good_colorplot(imef_data, V_data):
     ax1.set_xlabel("Potential")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     # Plot the data. Note that new_V_data is multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    im = ax1.contourf(new_phi, new_r, new_V_data * -1, cmap='coolwarm', vmin=-25, vmax=25)
+    im = ax1.contourf(new_phi, new_r, new_V_data * -1, cmap='coolwarm', vmin=-120, vmax=120)
     # plt.show()
 
     return im
@@ -137,7 +137,7 @@ def get_good_colorplot(imef_data, V_data):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='PUT DESCRIPTION HERE'
+        description='Create a gif of the electric potential predicted by a given neural network over a given time range'
     )
 
     parser.add_argument('model_filename', type=str,

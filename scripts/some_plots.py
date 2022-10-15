@@ -11,11 +11,14 @@ def main():
     data_binned_nk = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta.nc')
     data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_Kp.nc')
 
-    vis.ief_holes_hist(data, index='AL', bins = np.arange(-2000, 200, 20))
+    # vis.ief_holes_hist(data, index='AL', bins = np.arange(-2000, 200, 20))
 
-    vis.ief_holes_hist(data)
+    # vis.ief_holes_hist(data)
 
-    vis.create_histogram(data, index='Sym-H', bins=np.arange(-140, 60, 2))
+    # vis.create_histogram(data, index='Sym-H', bins=np.arange(-140, 60, 2))
+
+    # np.arange(0, 90, 10/3)-.1
+    vis.create_histogram(data, index='Kp', bins=np.array([0,1,2,3,4,5,6,7,9]), checkmarks=[1.1])
 
     fig, axes = vis.plot_global_efield_one(data_binned_nk, None)
     plt.show()

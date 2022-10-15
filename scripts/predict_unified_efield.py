@@ -16,7 +16,7 @@ def main():
                         help='Name of the file containing the trained NN. Do not include file extension')
 
     parser.add_argument('time_to_predict', type=str,
-                        help='The time that the user wants predict the electric field and electric potential for')
+                        help='The time that the user wants predict the electric field and electric potential for. %Y-%m-%dT%H:%M:%S')
 
     args = parser.parse_args()
 
@@ -51,11 +51,11 @@ def main():
 
     time = dt.datetime.strptime(args.time_to_predict, '%Y-%m-%dT%H:%M:%S')
 
-    imef_data, potential = db.predict_efield_and_potential(model, time=time, number_of_inputs=len(values_to_use))
+    imef_data, potential = db.predict_efield_and_potential(model, time=time, number_of_inputs=len(values_to_use), values_to_use=values_to_use)
 
     xrplot.plot_efield(imef_data, 'predicted_efield_polar_iLiMLT', mode='polar', count=False)
 
-    xrplot.plot_potential(imef_data, potential)
+    xrplot.plot_potential(imef_data, potential, vmin=-120, vmax=120)
 
 
 if __name__ == '__main__':

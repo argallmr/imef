@@ -8,6 +8,7 @@ from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
 from imef.efield.model_creation import Neural_Networks as NN
 import imef.data.data_manipulation as dm
+import pickle
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
@@ -199,13 +200,22 @@ def train_NN(args):
     for counter in range(2, len(NN_layout)-2):
         layer_string = layer_string + str(NN_layout[counter])+'-'
     layer_string+=str(NN_layout[len(NN_layout)-2])
+    if undersample == True:
+        model_name = 'undersampled$'+model_name
     model_name = layer_string+'$'+values_string+'$'+model_name
 
     # save the model
     torch.save(model.state_dict(), model_name)
 
 
-def linear_regression(train_filename_list, values_to_use, kfold):
+def linear_regression(train_filename_list, values_to_use, kfold, model_filename):
+    if values_to_use=='All':
+        values_to_use = ['Kp', 'Dst', 'Symh']
+    elif ',' in values_to_use:
+        values_to_use = values_to_use.split(',')
+    else:
+        values_to_use = [values_to_use]
+
     # For every file given by the user, open it, gather the necessary inputs that will train the neural network, and create one object containing all of that data
     for train_filename in train_filename_list:
         total_data = xr.open_dataset(train_filename+'.nc')
@@ -217,10 +227,10 @@ def linear_regression(train_filename_list, values_to_use, kfold):
             total_inputs = np.concat((total_inputs, one_file_inputs))
             total_targets = np.concat((total_targets, one_file_targets))
 
-    # errors are incorrect. fix
     if kfold:
         kf = KFold(n_splits=5, shuffle=True, random_state=142)
         test_error = np.zeros([3])
+        total=0
         for train_index, test_index in kf.split(total_inputs):
             train_inputs, test_inputs = total_inputs[train_index], total_inputs[test_index]
             train_targets, test_targets = total_targets[train_index], total_targets[test_index]
@@ -232,10 +242,12 @@ def linear_regression(train_filename_list, values_to_use, kfold):
             length = len(test_inputs[0])
 
             for counter in range(len(test_inputs)):
+                total+=1
                 pred = LR.predict(test_inputs[counter].reshape(-1, length))[0]
                 error = np.sqrt(pred**2 + test_targets[counter]**2)
                 test_error += error
 
+        test_error /= len(total_targets)
         print("Done!")
 
         values_string = ''
@@ -251,11 +263,20 @@ def linear_regression(train_filename_list, values_to_use, kfold):
 
         print(output)
     else:
+        print('fitting')
         LR = LinearRegression()
         LR.fit(total_inputs, total_targets)
         print("Done!")
 
-    test_error /= len(total_targets)
+    values_name_string = ''
+    for strvalue in values_to_use:
+        if strvalue == values_to_use[-1]:
+            values_name_string=values_name_string+strvalue+'$'
+        else:
+            values_name_string = values_name_string + strvalue + '-'
+    filename = 'LR$'+values_name_string+model_filename
+
+    pickle.dump(LR, open(filename, 'wb'))
 
 def main():
     parser = argparse.ArgumentParser(
@@ -269,7 +290,7 @@ def main():
 
     parser.add_argument('layers', type=str, help='The number of nodes you want in each layer of your NN. Eg, a 3 layer NN would look something like 30,20,15. If you want to use linear regression, type LR instead')
 
-    parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained NN. Do not include file extension. Note that nothing will be saved for linear regression'
+    parser.add_argument('model_filename', type=str, help='Desired output name of the file containing the trained model. Do not include file extension.'
                                                          'Also note that if you want to pass the model into other files in this package, you should name the file in the following format:'
                                                          'Layer1-Layer2-LayerX$input_list$input_filename. Eg: 50-20$Kp,Dst$090115_033022_mms1_sample_data')
 
@@ -313,12 +334,13 @@ def main():
     args = parser.parse_args()
 
     train_filename_list = args.input_filename.split(',')
-    values_to_use = [args.input_list]
+    values_to_use = args.input_list
     layers=args.layers
+    model_filename = args.model_filename
     kfold=args.kfold
 
     if layers == 'LR':
-        linear_regression(train_filename_list, values_to_use, kfold)
+        linear_regression(train_filename_list, values_to_use, kfold, model_filename)
     else:
         train_NN(args)
 

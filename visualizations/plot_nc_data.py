@@ -87,7 +87,7 @@ def plot_efield(imef_data, plotted_variable, mode='cartesian', count=True, log_c
     plt.show()
 
 
-def plot_potential(imef_data, V_data):
+def plot_potential(imef_data, V_data, vmin=None, vmax=None):
     # Note that it is expected that the electric field data is in polar coordinates. Otherwise the potential values are incorrect
 
     # find L and MLT range used in the data given
@@ -131,6 +131,11 @@ def plot_potential(imef_data, V_data):
     # Plot the data
     fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False, subplot_kw=dict(projection='polar'))
 
+    if vmin==None:
+        vmin=np.min(new_V_data)
+    if vmax==None:
+        vmax=np.max(new_V_data)
+
     # Plot the electric field
     # Scale makes the arrows smaller/larger. Bigger number = smaller arrows.
     # May need to be changed when more data points are present
@@ -138,7 +143,7 @@ def plot_potential(imef_data, V_data):
     ax1.set_xlabel("Potential")
     ax1.set_thetagrids(np.linspace(0, 360, 9), labels=['0', '3', '6', '9', '12', '15', '18', '21', ' '])
     # Plot the data. Note that new_V_data is multiplied by -1, since the L/MLT coordinate system has positive x and positive y in the opposite direction as is standard
-    im = ax1.contourf(new_phi, new_r, new_V_data*-1, cmap='coolwarm', vmin=-5, vmax=5)
+    im = ax1.contourf(new_phi, new_r, new_V_data*-1, cmap='coolwarm', vmin=vmin, vmax=vmax)
     # plt.clabel(im, inline=True, fontsize=8)
     # plt.imshow(new_V_data, extent=[-40, 12, 0, 10], cmap='RdGy', alpha=0.5)
     fig.colorbar(im, ax=ax1)

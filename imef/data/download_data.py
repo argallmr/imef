@@ -986,7 +986,7 @@ def get_dst_data_old(ti, te, expand=None):
     dst_data = xr.Dataset(coords={'time': time})
 
     # Put the kp data into the dataset
-    dst_data['DST'] = xr.DataArray(dst, dims=['time'], coords={'time': time})
+    dst_data['Dst'] = xr.DataArray(dst, dims=['time'], coords={'time': time})
 
     return dst_data
 

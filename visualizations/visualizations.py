@@ -1144,6 +1144,7 @@ def ief_holes_hist(data, index='Sym-H', separating_index='IEF', bins=np.arange(-
 
 
 def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9]), checkmarks=np.array([.25, .5, .75, 1])):
+    # For no checkmarks, set checkmarks=[1.1] or some number greater than 1
     fig, axes = plt.subplots(nrows=1, ncols=2, squeeze=False)
     fig.tight_layout()
     # matplotlib is limited here. cannot bin with bin size < 1
@@ -1151,7 +1152,7 @@ def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9]
     bins2 = np.arange(bins[0], bins[-1])
 
     # calculate + plot cumulative counts of given index
-    returned = ax2.hist(data[index].values, bins2, histtype='step', cumulative=True, orientation='horizontal')
+    returned = ax2.hist(data[index].values, bins2, histtype='step', cumulative=True, orientation='horizontal', color='black')
     counts = returned[0]
     x_ticks = returned[1]
 
@@ -1160,12 +1161,12 @@ def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9]
     counts_counter = 0
     new_bins=np.array([bins[-1]])
     # make horizontal and vertical lines at each given checkpoint (note checkpoints are percentages of total counts)
-    while checkmark_counter < len(checkmarks):
+    while checkmark_counter < len(checkmarks) and checkmarks[checkmark_counter] <=1:
         count_marker = checkmarks[checkmark_counter] * total_counts
         if counts[counts_counter] >= count_marker:
             if int(checkmarks[checkmark_counter]) != 1:
-                ax2.hlines(y=x_ticks[counts_counter], xmin=0, xmax=counts[counts_counter])
-            ax2.vlines(x=counts[counts_counter], ymin=bins[0], ymax=x_ticks[counts_counter])
+                ax2.hlines(y=x_ticks[counts_counter], xmin=0, xmax=counts[counts_counter], color='red')
+            ax2.vlines(x=counts[counts_counter], ymin=bins[0], ymax=x_ticks[counts_counter], color='red')
             new_bins = np.append(new_bins, x_ticks[counts_counter])
             checkmark_counter += 1
         counts_counter += 1
@@ -1175,9 +1176,10 @@ def create_histogram(data, index='Kp', bins=np.array([0, 1, 2, 3, 4, 5, 6, 7, 9]
 
     # plot the number of counts in each given bin
     ax = axes[0][0]
-    ax.hist(data[index].values, bins=bins)
+    ax.hist(data[index].values, bins=bins, color='dodgerblue')
     ax.set_ylabel('Number of Data Points')
     ax.set_xlabel(index + " (nT)")
+    ax2.set_ylim(0, 7.97)
 
     plt.show()
 

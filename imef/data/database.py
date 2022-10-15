@@ -449,7 +449,7 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
                        'MLT': mec_data['MLT']})
 
 
-def predict_efield_and_potential(model, time=None, data=None, return_pred = True, number_of_inputs = 1, values_to_use=['Kp']):
+def predict_efield_and_potential(model, time=None, data=None, return_pred = True, values_to_use=['Kp']):
     # A function that will take a model created by create_neural_network.py, and either a time or data argument,
     # and calculate the electric field and electric potential, plot them (if the user wants), and return the predicted values (if the user wants)
 
@@ -480,6 +480,7 @@ def predict_efield_and_potential(model, time=None, data=None, return_pred = True
 
     base_kp_values = test_inputs[-1].clone()
 
+    number_of_inputs = len(values_to_use)
     size_of_input_vector=60*number_of_inputs+3
 
     for L in range(4, 11):

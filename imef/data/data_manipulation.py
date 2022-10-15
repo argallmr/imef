@@ -1437,12 +1437,13 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
 
     if remove_nan == True:
         imef_data = imef_data.where(np.isnan(imef_data['E_con'][:, 0]) == False, drop=True)
-    if undersample != None:
+    if undersample != None and len(imef_data['time'].values) != 0:
         imef_data = random_undersampling(imef_data, quiet_storm_ratio=undersample)
 
     # Note that the first bits of data cannot be used, because the first 60 times dont have Kp values and whatnot. Will become negligible when done on a large amount of data
     imef_data = imef_data.where(imef_data['time']>=(imef_data['time'].values[0]+np.timedelta64(5, 'h')), drop=True)
 
+    design_matrix_array=None
     if get_target_data == True:
         times_to_keep = []
     for counter in range(0, len(imef_data['time'].values)):
@@ -1463,7 +1464,7 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
             the_rest_of_the_data = np.array([imef_data['L'].values[counter], np.cos(np.pi / 12 * imef_data['MLT'].values[counter]), np.sin(np.pi / 12 * imef_data['MLT'].values[counter])]).tolist()
             new_data_line += the_rest_of_the_data
 
-            if counter == 0:
+            if design_matrix_array==None:
                 design_matrix_array = [new_data_line]
             else:
                 design_matrix_array.append(new_data_line)
@@ -1490,9 +1491,11 @@ def get_NN_inputs(imef_data, remove_nan=True, get_target_data=True, use_values=[
 
 
 # just realized this could probably be made significantly easier with binned_statistic. oh well
-def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=None):
+def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=24, max_dips=None):
     # given a datafile from sample_data.py, this function returns a list of intervals that represent the storm data
     # dips has the first and last indices that contain all the data
+    # max_hours is the cutoff point: after 24 (default) hours of data being below the threshold, save the dip locations
+    # max_dips is return the first int amount of dips found in the data. Default is to return all of them
 
     timescale = data['time'].values[1] - data['time'].values[0]
     if mode == 'Dst':
@@ -1504,9 +1507,11 @@ def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=None):
 
     dips=[]
     counter=0
+    number_of_dips=0
     while counter < len(data[mode].values):
+        if number_of_dips == max_dips:
+            break
         if data[mode].values[counter] <=threshold:
-            print('FOUND ONE')
             loop=True
             another_counter=counter
             hours_under_thresh=0
@@ -1523,21 +1528,23 @@ def get_storm_intervals(data, mode='Dst', threshold=-40, max_hours=None):
                     else:
                         hours_under_thresh=0
                     another_counter += bins_per_timescale
-
-                    if hours_under_thresh==max_hours or another_counter == len(data[mode].values): # if there is int(max_hours) hours without a dip over (threshold) nT, then stop and record the index
+                    if hours_under_thresh==max_hours or another_counter >= len(data[mode].values): # if there is int(max_hours) hours without a dip over (threshold) nT, then stop and record the index
                         loop=False
+                        if another_counter > len(data[mode].values):
+                            another_counter = len(data[mode].values)
                         if counter-bins_per_timescale*max_hours<0:
                             dips.append([0, another_counter])
                         else:
                             dips.append([counter-bins_per_timescale*max_hours, another_counter]) # record 1 day of data before the initial drop, and all the data until 1 day after
                         counter=another_counter
+                        number_of_dips+=1
 
         counter+=1
 
     return dips
 
 
-def reverse_bins(bins, length_of_data):
+def reverse_bins(bins, length_of_data, keep_overlapping = False):
     reversed_bins = []
     counter = 0
 
@@ -1549,8 +1556,9 @@ def reverse_bins(bins, length_of_data):
             else:
                 reversed_bins.append([0, bins[0][0]])
         else:
-            # Put reversed bins in list
-            reversed_bins.append([bins[counter - 1][1], bins[counter][0]])
+            # Put reversed bins in list. if the bins from bins overlap with each other (which can occur in get_storm_intervals), then ignore them while reversing unless specified otherwise
+            if keep_overlapping == True or bins[counter - 1][1] < bins[counter][0]:
+                reversed_bins.append([bins[counter - 1][1], bins[counter][0]])
         counter += 1
 
     # put last bin in list (if needed)
@@ -1566,12 +1574,11 @@ def random_undersampling(data, threshold=-40, quiet_storm_ratio=1.0):
     # To be clear, this definitely undersamples the data. However the way I do it is by reducing the number of datapoints in each bin by a certain percentage. The authors may not do the same
     # But here is the link in case it's needed: https://link.springer.com/article/10.1007/s41060-017-0044-3
 
-    intervals_of_storm_data = get_storm_intervals(data, threshold=threshold)
+    intervals_of_storm_data = get_storm_intervals(data, threshold=threshold, max_hours=0)
     storm_counts=0
     for start, end in intervals_of_storm_data:
         storm_counts += end-start
     quiet_counts=len(data['time'])-storm_counts
-    print('we are here')
 
     if quiet_counts > storm_counts:
         bins_to_undersample = reverse_bins(intervals_of_storm_data, len(data['time']))
@@ -1592,7 +1599,6 @@ def random_undersampling(data, threshold=-40, quiet_storm_ratio=1.0):
         all_times = np.sort(all_times)
 
         undersampled_data = data.sel(time=all_times)
-        print('guucccii booyyyyyyy')
 
         return undersampled_data
     else:

@@ -1003,18 +1003,24 @@ class Dst_Downloader(Downloader):
         data=[]
 
         # Combine all the Dst data into a list
-        while index < len(text_split):
+        loop=True
+        while index < len(text_split) and loop==True:
             try:
                 data.append(int(text_split[index]))
             except:
-                # Sometimes the numbers are not separated by whitespace (eg. -98-105-102). Fix those
-                numbers = text_split[index]
-                numbers_list = numbers.split('-')
-                if numbers_list[0] == '':
-                    numbers_list.pop(0)
-                numbers_list = (np.array(numbers_list).astype('int64') * -1).tolist()
-                for number in numbers_list:
-                    data.append(number)
+                try:
+                    # There are two cases where things should come in here. Either
+                    # a) Sometimes the numbers are not separated by whitespace (eg. -98-105-102). Fix those
+                    # or b) the dst page has a footer. If it does it will break in the numbers_list=... line, and the loop will end
+                    numbers = text_split[index]
+                    numbers_list = numbers.split('-')
+                    if numbers_list[0] == '':
+                        numbers_list.pop(0)
+                    numbers_list = (np.array(numbers_list).astype('int64') * -1).tolist()
+                    for number in numbers_list:
+                        data.append(number)
+                except:
+                    loop=False
             index+=1
 
         # Remove every 25th item in the list. These are the day counters, not Dst data
