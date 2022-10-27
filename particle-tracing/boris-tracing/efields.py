@@ -34,16 +34,17 @@ def convection_field_A0(kp):
 
 def vs_efield(coords, gs, kp, sph=False):
     """
-    Compute Volland-Stern electric field in [mV/m]
+    Compute Volland-Stern electric field with both convection and corotation electric field.
+    Model based on Volland 1973 (doi:10.1029/JA078i001p00171) and Stern 1975 (doi:10.1029/JA080i004p00595).
 
     Args:
         coords (list):          array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
         gs (floay):             shielding constant
         kp (float):             kp index
-        sph (bool, optional):   Deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
+        sph (bool, optional):   deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
 
     Returns:
-        list: volland-stern field in 3 dimensions.
+        list: volland-stern field in 3 dimensions in units [mV/m].
     """
 
     if sph == False:
@@ -59,16 +60,39 @@ def vs_efield(coords, gs, kp, sph=False):
     # uniform convection electric field strength in equatorial plane [mV/m^2]
     A0 = convection_field_A0(kp)
 
-    # VS efield [kV/m]
-
-    # radial componenet
+    """VS convection efield EC [kV/m]"""
+    # radial componenet [V/m]
     EC0 = A0 * gs * (rgeo ** (gs - 1)) * (np.sin(phi))
-    # polar component
+
+    # polar component [V/m]
     EC1 = 0.0
-    # azimuthal component
+
+    # azimuthal component [V/m]
     EC2 = A0 * (rgeo ** (gs - 1)) * (1 / (np.sin(theta))) * (np.cos(phi))
 
     # set to array
     EC = np.array([EC0, EC1, EC2])
 
-    return EC
+    """VS corotation efield ER [kV/m]"""
+    # equatorial magnetic field strength at surface of Earth [T]
+    BE = 4.5e-5
+
+    # angular velocity of the Earth’s rotation [rad/s]
+    omega_E = 7.2921e-5
+
+    # equatorial radius of earth [m]
+    RE = 6371000
+
+    # radial component [V/m]
+    ER0 = (omega_E * BE * RE**3) / rgeo**2
+
+    # convert to [mV/m]
+    ER0 = ER0 * 1000
+
+    # set to array
+    ER = np.array([ER0, 0.0, 0.0])
+
+    # total electric field
+    Etot = EC + ER
+
+    return Etot
