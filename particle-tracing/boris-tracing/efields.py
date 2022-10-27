@@ -9,6 +9,49 @@ def crt_to_sph(x, y, z):
     return r, theta, phi
 
 
+def corotation_field(coords, sph=False):
+    """
+    Compute corotation electric field in equatorial plane from given coordinates.
+    Based on [...]
+
+    Args:
+        coords (list): array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        sph (bool, optional): deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
+
+    Returns:
+     list: coration field in 3 dimensions in units [mV/m]
+    """
+
+    if sph == False:
+        # convert cartesian to spherical coordinates
+        rgeo, theta, phi = crt_to_sph(coords[0], coords[1], coords[2])
+
+    else:
+        # unpack coordinates
+        rgeo = coords[0]
+        theta = coords[1]
+        phi = coords[2]
+
+    # equatorial magnetic field strength at surface of Earth [T]
+    BE = 3.1e-5
+
+    # angular velocity of the Earth’s rotation [rad/s]
+    omega = 7.2921e-5
+
+    # equatorial radius of earth [m]
+    RE = 6371000
+
+    # radial component
+    ER0 = (omega * BE * RE**3) / rgeo**2
+
+    # convert to [mV/m]
+    ER0 = ER0 * 1000
+
+    # return array [mV/m]
+    ER = np.array([ER0, 0.0, 0.0])
+    return ER
+
+
 def convection_field_A0(kp):
     """
     Compute uniform convection electric field strength in equatorial plane in [kV/m^2] with given kp index.
@@ -34,7 +77,7 @@ def convection_field_A0(kp):
 
 def vs_efield(coords, gs, kp, sph=False):
     """
-    Compute Volland-Stern electric field with both convection and corotation electric field.
+    Compute Volland-Stern conevction electric field.
     Model based on Volland 1973 (doi:10.1029/JA078i001p00171) and Stern 1975 (doi:10.1029/JA080i004p00595).
 
     Args:
@@ -60,7 +103,6 @@ def vs_efield(coords, gs, kp, sph=False):
     # uniform convection electric field strength in equatorial plane [mV/m^2]
     A0 = convection_field_A0(kp)
 
-    """VS convection efield EC [kV/m]"""
     # radial componenet [V/m]
     EC0 = A0 * gs * (rgeo ** (gs - 1)) * (np.sin(phi))
 
@@ -70,29 +112,6 @@ def vs_efield(coords, gs, kp, sph=False):
     # azimuthal component [V/m]
     EC2 = A0 * (rgeo ** (gs - 1)) * (1 / (np.sin(theta))) * (np.cos(phi))
 
-    # set to array
+    # return array [mV/m]
     EC = np.array([EC0, EC1, EC2])
-
-    """VS corotation efield ER [kV/m]"""
-    # equatorial magnetic field strength at surface of Earth [T]
-    BE = 4.5e-5
-
-    # angular velocity of the Earth’s rotation [rad/s]
-    omega_E = 7.2921e-5
-
-    # equatorial radius of earth [m]
-    RE = 6371000
-
-    # radial component [V/m]
-    ER0 = (omega_E * BE * RE**3) / rgeo**2
-
-    # convert to [mV/m]
-    ER0 = ER0 * 1000
-
-    # set to array
-    ER = np.array([ER0, 0.0, 0.0])
-
-    # total electric field
-    Etot = EC + ER
-
-    return Etot
+    return EC
