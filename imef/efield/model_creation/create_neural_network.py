@@ -6,9 +6,9 @@ import argparse
 import xarray as xr
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
-from imef.efield.model_creation import Neural_Networks as NN
 import imef.data.data_manipulation as dm
 import pickle
+import imef.efield.model_creation.NN_functions as NN_func
 
 # For debugging purposes
 np.set_printoptions(threshold=np.inf)
@@ -57,7 +57,7 @@ def test_loop(dataloader, model, loss_fn, device):
 def train_NN(args):
     train_filename_list = args.input_filename.split(',')
     values_to_use = args.input_list
-    layers = args.layers
+    layers = args.layers.split(',')
     model_name = args.model_filename + '.pth'
     random = args.random
     kfold = args.kfold
@@ -80,8 +80,8 @@ def train_NN(args):
 
     # For every file given by the user, open it, gather the necessary inputs that will train the neural network, and create one object containing all of that data
     for train_filename in train_filename_list:
-        total_data = xr.open_dataset(train_filename+'.nc')
-        one_file_inputs, one_file_targets = dm.get_NN_inputs(total_data, use_values=values_to_use, undersample=undersample_ratio)
+        one_file = xr.open_dataset(train_filename+'.nc')
+        one_file_inputs, one_file_targets = dm.get_NN_inputs(one_file, use_values=values_to_use, undersample=undersample_ratio)
         if train_filename == train_filename_list[0]:
             total_inputs = one_file_inputs
             total_targets = one_file_targets
@@ -89,44 +89,20 @@ def train_NN(args):
             total_inputs = torch.concat((total_inputs, one_file_inputs))
             total_targets = torch.concat((total_targets, one_file_targets))
 
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using {device} device')
 
-    NN_dict = {1: NN.NeuralNetwork_1,
-               2: NN.NeuralNetwork_2,
-               3: NN.NeuralNetwork_3}
-
-    # HERE IS WHERE TO DETERMINE LAYER ARCHITECTURE
-    NN_layout = np.array([60*len(values_to_use)+3])
+    number_of_layers = len(layers)
+    NN_layout = np.array([NN_func.get_predictor_counts(number_of_layers)])
 
     if random == True:
-        random_values = np.array(layers.split(','))
+        random_values = np.array(layers)
         NN_layout = np.append(NN_layout, np.random.randint(random_values[0], random_values[1], random_values[2]))
     else:
-        NN_layout = np.append(NN_layout, np.array(layers.split(",")))
+        NN_layout = np.append(NN_layout, np.array(layers))
     NN_layout = np.append(NN_layout, np.array([3])).astype(int)
-    number_of_layers = len(NN_layout)-2
 
-    try:
-        NeuralNetwork = NN_dict[number_of_layers]
-    except:
-        raise KeyError("The amount of layers inputted is not available")
-
-    model = NeuralNetwork(NN_layout).to(device)
-
-    # To output to a txt file, which will be used for keeping track of the NN's I run and their errors
-    counter=0
-    values_string = ''
-    for value in values_to_use:
-        values_string += value
-    string = str('Inputs: ' + values_string + ' || Layers: ')
-    for parameter in model.parameters():
-        if counter%2==0 and counter < 2*number_of_layers-2:
-            string = string + str(len(parameter)) + '-'
-        elif counter%2 == 0 and counter == 2*number_of_layers-2:
-            string = string + str(len(parameter))
-        counter+=1
+    model=NN_func.get_NN(NN_layout, device=device)
 
     # These values are all things to be messed with to get the optimal neural network.
     # the number of points
@@ -152,7 +128,7 @@ def train_NN(args):
         for train_index, test_index in kf.split(total_inputs):
             # I think that this does reset the NN, so it can retrain from scratch. Should test a little more tho just in case, but I can't find a way to do so
             # If I feel the need to change this, make a list containing 5 models before the for loop (one for each fold), and then pick a model from there, and use each for each pass through the loop
-            model = NeuralNetwork(NN_layout).to(device)
+            model = NN_func.get_NN(NN_layout, device=device)
 
             train_inputs, test_inputs = total_inputs[train_index], total_inputs[test_index]
             train_targets, test_targets = total_targets[train_index], total_targets[test_index]
@@ -172,16 +148,11 @@ def train_NN(args):
         final_test_error = final_test_error / (10 * kf.get_n_splits(total_inputs))
 
         print("Done!")
-        # Output the properties and the test results of the NN to a file called test_errors.txt
-        put_error_here = open('test_errors.txt', 'a')
-        output = string + str(
-            ' || ExMSE: ' + str(final_test_error[0]) + ' || EyMSE: ' + str(final_test_error[1]) + ' || EzMSE: '
-            + str(final_test_error[2]) + ' || Total E MSE: ' + str(np.sum(final_test_error)) + '\n')
-        put_error_here.write(output)
+        output = NN_func.output_error(values_to_use, model.parameters(), number_of_layers, final_test_error, file_to_output_to = 'test_errors.txt')
 
         print(output)
     else:
-        model = NeuralNetwork(NN_layout).to(device)
+        model = NN_func.get_NN(NN_layout, device=device)
 
         train_inputs = total_inputs
         train_targets = total_targets
@@ -202,6 +173,9 @@ def train_NN(args):
     layer_string+=str(NN_layout[len(NN_layout)-2])
     if undersample == True:
         model_name = 'undersampled$'+model_name
+    values_string = ''
+    for value in values_to_use:
+        values_string += value
     model_name = layer_string+'$'+values_string+'$'+model_name
 
     # save the model

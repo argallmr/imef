@@ -4,7 +4,7 @@ import argparse
 import torch
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
-import imef.efield.model_creation.Neural_Networks as NN
+import imef.efield.model_creation.NN_functions as NN_func
 from imef.data.data_manipulation import get_NN_inputs, get_storm_intervals
 from sklearn.linear_model import LinearRegression
 import pickle
@@ -140,23 +140,13 @@ def main():
     layers = model_filename.split('$')[0].split('-')
     values_to_use = model_filename.split('$')[1].split('-')
 
-    NN_layout = np.array([60 * len(values_to_use) + 3])
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+    NN_layout = np.array([60 * len(values_to_use) + 3])
     NN_layout = np.append(NN_layout, np.array(layers))
     NN_layout = np.append(NN_layout, np.array([3])).astype(int)
-    number_of_layers = len(NN_layout) - 2
 
-    NN_dict = {1: NN.NeuralNetwork_1,
-               2: NN.NeuralNetwork_2,
-               3: NN.NeuralNetwork_3}
-
-    try:
-        NeuralNetwork = NN_dict[number_of_layers]
-    except:
-        raise KeyError("The amount of layers inputted is not available")
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    NN_model = NeuralNetwork(NN_layout).to(device)
+    NN_model = NN_func.get_NN(NN_layout, device=device)
 
     NN_model.load_state_dict(torch.load(model_filename))
 
