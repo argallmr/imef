@@ -946,7 +946,8 @@ class Dst_Downloader(Downloader):
                 location_index += 1
 
         # Write file to local path
-        open(file_path, 'wb').write(r.content)
+        with open(file_path, 'wb') as file:
+            file.write(r.content)
 
         return file_path
 

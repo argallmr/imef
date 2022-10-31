@@ -627,6 +627,7 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
     r_vname = '_'.join((sc, 'mec', 'r', 'gse'))
     v_vname = '_'.join((sc, 'mec', 'v', 'gse'))
     mlt_vname = '_'.join((sc, 'mec', 'mlt'))
+    mlat_vname = '_'.join((sc, 'mec', 'mlat'))
     l_dip_vname = '_'.join((sc, 'mec', 'l', 'dipole'))
 
     # The names of the indices used for the radius (?) and velocity data
@@ -636,7 +637,7 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
     # Get MEC data
     mec_data = util.load_data(sc, 'mec', mode, level,
                               optdesc='epht89d', start_date=ti, end_date=te,
-                              variables=[r_vname, v_vname, mlt_vname, l_dip_vname])
+                              variables=[r_vname, v_vname, mlt_vname, l_dip_vname, mlat_vname])
 
     # Rename variables
     mec_data = mec_data.rename({r_vname: 'R_sc',
@@ -645,6 +646,7 @@ def get_mec_data(sc, mode, level, ti, te, binned=False):
                                 v_lbl_vname: 'V_sc_index',
                                 mlt_vname: 'MLT',
                                 l_dip_vname: 'L',
+                                mlat_vname: 'MLAT',
                                 'Epoch': 'time',
                                 })
 

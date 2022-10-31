@@ -272,12 +272,10 @@ def multi_interval(sc, mode, level, t0, t1,
 
         # Download one day
         try:
-            data.append(one_interval(sc, mode, level, t_start, t_end,
-                                     dt_out=dt_out))
+            data.append(one_interval(sc, mode, level, t_start, t_end, dt_out=dt_out))
         except NoVariablesInFileError:
-            # If there is no data in the mms files, get the index data, and get the edi, fgm, etc but with nans for all the values
-            data.append(one_index_interval(sc, mode, level, t_start, t_end,
-                                     dt_out=dt_out, nans=True))
+            # If there is no data in the mms files, get the index data. merging will result in nan being placed automatically in the missing edi points
+            data.append(one_index_interval(t_start, t_end, dt_out=dt_out))
         except Exception as E:
             # raise E
             print('Error during interval {0} - {1}'
@@ -292,7 +290,7 @@ def multi_interval(sc, mode, level, t0, t1,
         t_end += t_inc
 
     # Combine all of the datasets together
-    ds = xr.concat(data, dim='time')
+    ds = xr.merge(data)
 
     # Fill in some attributes
 
@@ -348,8 +346,7 @@ def multi_interval(sc, mode, level, t0, t1,
         optdesc = '{0:d}sec'.format(int(sec))
 
     # File path
-    fname = 'do_not_use'
-    fpath = (data_dir / fname).with_suffix('.nc')
+    fpath = 'do_not_use.nc'
 
     # Write to file
     ds.to_netcdf(path=fpath)
@@ -358,22 +355,25 @@ def multi_interval(sc, mode, level, t0, t1,
     # it can be fixed by opening that file, changing it back to hours, and outputting to a file
     # it is MLT for dt_out=5 seconds, it does it for dt_out=10 seconds, but not for dt_out=60 seconds
     # I then remove the first file, since it is incorrect and there is no use for it
-    data = xr.open_dataset(fpath)
-
-    if type(data['MLT'].values[0]) == type(np.timedelta64(1, 'ns')):
-        data['MLT'] = data['MLT']/np.timedelta64(1, 'h')
-
     fname2 = '_'.join((sc, 'imef', mode, level, optdesc,
-                      t0.strftime('%Y%m%d%H%M%S'),
-                      t1.strftime('%Y%m%d%H%M%S')))
+                       t0.strftime('%Y%m%d%H%M%S'),
+                       t1.strftime('%Y%m%d%H%M%S')))
     fpath2 = (data_dir / fname2).with_suffix('.nc')
 
-    data.to_netcdf(path=fpath2)
+    with xr.open_dataset(fpath) as data:
+        try:
+            if type(data['MLT'].values[0]) == type(np.timedelta64(1, 'ns')):
+                data['MLT'] = data['MLT']/np.timedelta64(1, 'h')
 
-    data.close()
-    os.remove(fpath)
+            data.to_netcdf(path=fpath2)
 
-    return fpath2
+            data.close()
+            os.remove(fpath)
+
+            return fpath2
+        except:
+            data.to_netcdf(path=fpath2)
+            return fpath2
 
 
 def one_interval(sc, mode, level, t0, t1, dt_out=None):
@@ -428,6 +428,7 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
 
     # Create a dataset
     return xr.Dataset({'E_EDI': edi_data['E_GSE'],
+                       'V_drift_GSE': edi_data['V_GSE'],
                        'B_GSE': fgm_data['B_GSE'],
                        'E_cor': E_cor,
                        'E_sc': E_sc,
@@ -446,7 +447,8 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
                        'R_sc': mec_data['R_sc'],
                        'V_sc': mec_data['V_sc'],
                        'L': mec_data['L'],
-                       'MLT': mec_data['MLT']})
+                       'MLT': mec_data['MLT'],
+                       'MLAT': mec_data['MLAT']})
 
 
 def predict_efield_and_potential(model, time=None, data=None, return_pred = True, values_to_use=['Kp']):
@@ -539,7 +541,7 @@ def predict_efield_and_potential(model, time=None, data=None, return_pred = True
         return imef_data, potential
 
 
-def one_index_interval(sc, mode, level, t0, t1, dt_out=None, nans=False):
+def one_index_interval(t0, t1, dt_out=None):
     '''
     Download and read data required by the IMEF model to a netCDF file.
 
@@ -566,75 +568,10 @@ def one_index_interval(sc, mode, level, t0, t1, dt_out=None, nans=False):
     dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
     omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
 
-    if nans==False:
-        return xr.Dataset({'Kp': kp_data,
-                    'Dst': dst_data,
-                    'Sym-H': omni_data['Sym-H'],
-                    'AE': omni_data['AE'],
-                    'AL': omni_data['AL'],
-                    'AU': omni_data['AU'],
-                    'IEF': omni_data['IEF']})
-
-    else:
-        # THIS MAY NOT BE THE BEST WAY TO DO IT. BUT ITS HOW IM GONNA DO IT FOR NOW
-        # IN THE FUTURE IT WOULD BE BETTER TO NOT DOWNLOAD THIS DATA AND INSTEAD MAKE THE DATASETS FROM SCRATCH
-        # These data points download data for a specific day that I know has data in it.
-        example_t0 = dt.datetime(2015, 9, 10)
-        example_t1 = dt.datetime(2015, 9, 11)
-        example_mode = 'srvy'
-        example_level = 'l2'
-        example_edi_data = dd.get_data('mms1', 'edi', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-        example_fgm_data = dd.get_data('mms1', 'fgm', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-        example_mec_data = dd.get_data('mms1', 'mec', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-        example_dis_data = dd.get_data('mms1', 'dis', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-        example_des_data = dd.get_data('mms1', 'des', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-        example_edp_data = dd.get_data('mms1', 'edp', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-        example_scpot_data = dd.get_data('mms1', 'scpot', example_mode, example_level, example_t0, example_t1, dt_out=dt_out)
-
-        # Replace all the values with nan for each of these variables, since we don't have them for these times
-        example_edi_data['E_GSE'].values = np.full_like(example_edi_data['E_GSE'], np.nan)
-        example_fgm_data['B_GSE'].values = np.full_like(example_fgm_data['B_GSE'], np.nan)
-        example_mec_data['L'].values = np.full_like(example_mec_data['L'], np.nan)
-        example_mec_data['MLT'].values = np.full_like(example_mec_data['MLT'], np.nan)
-        example_mec_data['R_sc'].values = np.full_like(example_mec_data['R_sc'], np.nan)
-        example_mec_data['V_sc'].values = np.full_like(example_mec_data['V_sc'], np.nan)
-        example_dis_data['V_DIS'].values = np.full_like(example_dis_data['V_DIS'], np.nan)
-        example_des_data['V_DES'].values = np.full_like(example_des_data['V_DES'], np.nan)
-        example_edp_data['E_GSE'].values = np.full_like(example_edp_data['E_GSE'], np.nan)
-        example_scpot_data.values = np.full_like(example_scpot_data, np.nan)
-
-        # IDK IF I NEED THESE LINES, BUT ILL LEAVE THEM INSTEAD OF MESSING WITH IT
-        # Get the corotation electric field
-        E_cor = dm.corotation_electric_field(example_mec_data['R_sc'])
-
-        # Get the spacecraft electric field
-        E_sc = dm.E_convection(-example_mec_data['V_sc'], example_fgm_data['B_GSE'][:, 0:3])
-
-        E_con = example_edi_data['E_GSE'] - E_cor - E_sc
-
-        # Calculate the plasma convection field
-        E_DIS = dm.E_convection(example_dis_data['V_DIS'],
-                                example_fgm_data['B_GSE'][:, 0:3].reindex_like(example_dis_data['V_DIS']))
-        E_DES = dm.E_convection(example_des_data['V_DES'],
-                                example_fgm_data['B_GSE'][:, 0:3].reindex_like(example_des_data['V_DES']))
-
-        return xr.Dataset({'E_EDI': example_edi_data['E_GSE'],
-                           'B_GSE': example_fgm_data['B_GSE'],
-                           'E_cor': E_cor,
-                           'E_sc': E_sc,
-                           'E_con': E_con,
-                           'E_DIS': E_DIS,
-                           'E_DES': E_DES,
-                           'E_EDP': example_edp_data['E_GSE'],
-                           'Kp': kp_data,
-                           'Dst': dst_data,
-                           'Sym-H': omni_data['Sym-H'],
-                           'AE': omni_data['AE'],
-                           'AL': omni_data['AL'],
-                           'AU': omni_data['AU'],
-                           'IEF': omni_data['IEF'],
-                           'Scpot': example_scpot_data,
-                           'R_sc': example_mec_data['R_sc'],
-                           'V_sc': example_mec_data['V_sc'],
-                           'L': example_mec_data['L'],
-                           'MLT': example_mec_data['MLT']})
+    return xr.Dataset({'Kp': kp_data,
+                'Dst': dst_data,
+                'Sym-H': omni_data['Sym-H'],
+                'AE': omni_data['AE'],
+                'AL': omni_data['AL'],
+                'AU': omni_data['AU'],
+                'IEF': omni_data['IEF']})

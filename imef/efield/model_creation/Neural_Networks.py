@@ -1,4 +1,19 @@
 from torch import nn
+from dataclasses import dataclass
+import numpy as np
+
+
+@dataclass
+class NN_parameters(object):
+    NN_layout: type(np.array)
+    batch_size: int
+    learning_rate: float
+    epochs: int
+    kfold: int
+    random_undersampling: int
+    # these two are not supposed to be strings, but I don't know how to not set an expected type of object
+    loss_fn: str
+    optimizer: str
 
 
 class NeuralNetwork_1(nn.Module):

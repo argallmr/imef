@@ -8,8 +8,10 @@ import visualizations.visualizations as vis
 
 def main():
     data = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000.nc')
-    data_binned_nk = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta.nc')
-    data_binned = xr.open_dataset('mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_Kp.nc')
+    data_binned_nk = xr.open_dataset(
+        'example_datasets/mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta.nc')
+    data_binned = xr.open_dataset(
+        'example_datasets/mms1_imef_srvy_l2_5sec_20150901000000_20220701000000_binned_r_theta_Kp.nc')
 
     # vis.ief_holes_hist(data, index='AL', bins = np.arange(-2000, 200, 20))
 
