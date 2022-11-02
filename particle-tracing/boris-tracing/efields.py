@@ -9,7 +9,12 @@ def crt_to_sph(x, y, z):
     return r, theta, phi
 
 
-def corotation_field(coords, sph=False):
+""" 
+corotation fields
+"""
+
+
+def corotation_efield(coords, sph=False):
     """
     Compute corotation electric field in equatorial plane from given coordinates.
     Based on [...]
@@ -19,7 +24,7 @@ def corotation_field(coords, sph=False):
         sph (bool, optional): deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
 
     Returns:
-     list: coration field in 3 dimensions in units [mV/m]
+     list: coration E-field in 3 dimensions in units [mV/m]
     """
 
     if sph == False:
@@ -52,6 +57,52 @@ def corotation_field(coords, sph=False):
     return ER
 
 
+def corotation_potential(coords, sph=False):
+    """
+    Compute corotation potential field in equatorial plane from given coordinates.
+
+    Args:
+        coords (list): array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        sph (bool, optional): deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
+
+    Returns:
+     list: magnitude of corotation potential in units [kV]
+    """
+
+    if sph == False:
+        # convert cartesian to spherical coordinates
+        rgeo, theta, phi = crt_to_sph(coords[0], coords[1], coords[2])
+
+    else:
+        # unpack coordinates
+        rgeo = coords[0]
+        theta = coords[1]
+        phi = coords[2]
+
+    # equatorial magnetic field strength at surface of Earth [T]
+    BE = 3.1e-5
+
+    # angular velocity of the Earth’s rotation [rad/s]
+    omega = 7.2921e-5
+
+    # equatorial radius of earth [m]
+    RE = 6371000
+
+    # coefficient [V]
+    c0 = -omega * RE**2 * BE
+
+    # calculate potential [V]
+    UR = c0 / (rgeo / RE)
+
+    # return in units [kV]
+    return UR * 1e-3
+
+
+"""
+Volland-Stern
+"""
+
+
 def convection_field_A0(kp):
     """
     Compute uniform convection electric field strength in equatorial plane in [kV/m^2] with given kp index.
@@ -73,6 +124,41 @@ def convection_field_A0(kp):
     A0 = A0 * 1e6
 
     return A0
+
+
+def vs_potential(coords, gs, kp, sph=False):
+    """
+    Compute Volland-Stern potential field.
+    Model based on Volland 1973 (doi:10.1029/JA078i001p00171) and Stern 1975 (doi:10.1029/JA080i004p00595).
+
+    Args:
+        coords (list):          array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        gs (floay):             shielding constant
+        kp (float):             kp index
+        sph (bool, optional):   deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
+
+    Returns:
+        float: potential in units [kV]
+    """
+
+    if sph == False:
+        # convert cartesian to spherical coordinates
+        rgeo, theta, phi = crt_to_sph(coords[0], coords[1], coords[2])
+
+    else:
+        # unpack coordinates
+        rgeo = coords[0]
+        theta = coords[1]
+        phi = coords[2]
+
+    # uniform convection electric field strength in equatorial plane [mV/m^2]
+    E0 = convection_field_A0(kp)
+
+    # VS potential [mV]
+    U = -E0 * (rgeo**gs) * np.sin(phi)
+
+    # return potential in [kv]
+    return U * 1e-6
 
 
 def vs_efield(coords, gs, kp, sph=False):
@@ -103,15 +189,16 @@ def vs_efield(coords, gs, kp, sph=False):
     # uniform convection electric field strength in equatorial plane [mV/m^2]
     A0 = convection_field_A0(kp)
 
-    # radial componenet [V/m]
+    # radial componenet [mV/m]
     EC0 = A0 * gs * (rgeo ** (gs - 1)) * (np.sin(phi))
 
-    # polar component [V/m]
+    # polar component [mV/m]
     EC1 = 0.0
 
-    # azimuthal component [V/m]
+    # azimuthal component [mV/m]
     EC2 = A0 * (rgeo ** (gs - 1)) * (1 / (np.sin(theta))) * (np.cos(phi))
 
     # return array [mV/m]
     EC = np.array([EC0, EC1, EC2])
+
     return EC
