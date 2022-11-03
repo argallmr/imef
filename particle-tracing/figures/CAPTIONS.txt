@@ -1,0 +1,10 @@
+NAME: plot_2d_dipole_bfield
+TYPE: png
+DESC: 2D dipole model of Earth's magnetic field with labled magnetic and rotational axis.
+
+#-------------------------------------------------#
+
+NAME: 
+TYPE: 
+DESC: 
+
