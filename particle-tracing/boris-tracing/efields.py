@@ -20,11 +20,11 @@ def corotation_efield(coords, sph=False):
     Based on [...]
 
     Args:
-        coords (list): array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        coords (ndarray): array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
         sph (bool, optional): deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
 
     Returns:
-     list: coration E-field in 3 dimensions in units [mV/m]
+     ndarray: coration E-field in 3 dimensions in units [mV/m]
     """
 
     if sph == False:
@@ -34,8 +34,6 @@ def corotation_efield(coords, sph=False):
     else:
         # unpack coordinates
         rgeo = coords[0]
-        theta = coords[1]
-        phi = coords[2]
 
     # equatorial magnetic field strength at surface of Earth [T]
     BE = 3.1e-5
@@ -46,8 +44,8 @@ def corotation_efield(coords, sph=False):
     # equatorial radius of earth [m]
     RE = 6371000
 
-    # radial component
-    ER0 = (omega * BE * RE**3) / rgeo**2
+    # radial component with zero check
+    ER0 = (omega * BE * RE**3) / rgeo**2 if rgeo != 0 else np.nan
 
     # convert to [mV/m]
     ER0 = ER0 * 1000
@@ -62,11 +60,11 @@ def corotation_potential(coords, sph=False):
     Compute corotation potential field in equatorial plane from given coordinates.
 
     Args:
-        coords (list): array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        coords (ndarray): array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
         sph (bool, optional): deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
 
     Returns:
-     list: magnitude of corotation potential in units [kV]
+     ndarray: magnitude of corotation potential in units [kV]
     """
 
     if sph == False:
@@ -76,8 +74,6 @@ def corotation_potential(coords, sph=False):
     else:
         # unpack coordinates
         rgeo = coords[0]
-        theta = coords[1]
-        phi = coords[2]
 
     # equatorial magnetic field strength at surface of Earth [T]
     BE = 3.1e-5
@@ -88,11 +84,8 @@ def corotation_potential(coords, sph=False):
     # equatorial radius of earth [m]
     RE = 6371000
 
-    # coefficient [V]
-    c0 = -omega * RE**2 * BE
-
     # calculate potential [V]
-    UR = c0 / (rgeo / RE)
+    UR = -(omega * RE**3 * BE) / rgeo if rgeo != 0 else np.nan
 
     # return in units [kV]
     return UR * 1e-3
@@ -132,7 +125,7 @@ def vs_potential(coords, gs, kp, sph=False):
     Model based on Volland 1973 (doi:10.1029/JA078i001p00171) and Stern 1975 (doi:10.1029/JA080i004p00595).
 
     Args:
-        coords (list):          array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        coords (ndarray):          array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
         gs (floay):             shielding constant
         kp (float):             kp index
         sph (bool, optional):   deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
@@ -151,11 +144,14 @@ def vs_potential(coords, gs, kp, sph=False):
         theta = coords[1]
         phi = coords[2]
 
+    # equatorial radius of earth [m]
+    RE = 6371000
+
     # uniform convection electric field strength in equatorial plane [mV/m^2]
-    E0 = convection_field_A0(kp)
+    A0 = convection_field_A0(kp)
 
     # VS potential [mV]
-    U = -E0 * (rgeo**gs) * np.sin(phi)
+    U = -A0 * (rgeo**gs) * np.sin(phi)
 
     # return potential in [kv]
     return U * 1e-6
@@ -167,13 +163,13 @@ def vs_efield(coords, gs, kp, sph=False):
     Model based on Volland 1973 (doi:10.1029/JA078i001p00171) and Stern 1975 (doi:10.1029/JA080i004p00595).
 
     Args:
-        coords (list):          array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
+        coords (ndarray):          array of coordinates to compute efield in (x,y,z) or (r, theta, phi), with units in [m]; see 'sph' condition.
         gs (floay):             shielding constant
         kp (float):             kp index
         sph (bool, optional):   deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
 
     Returns:
-        list: volland-stern field in 3 dimensions in units [mV/m].
+        ndarray: volland-stern field in 3 dimensions in units [mV/m].
     """
 
     if sph == False:
