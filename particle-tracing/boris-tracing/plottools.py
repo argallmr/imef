@@ -109,7 +109,8 @@ def draw_earth3D(ax, rad=1, ecolor="b", **kwargs):
     )
 
 
-def add_offscale_RE(ax, lmax, offset=0.1, **kwargs):
+def add_offscale_RE(ax, lmax, offset=0.1, half=False, **kwargs):
+
     """
     Draws offscale RE axis on polar plot.
     Based on stack overflow question 16605137.
@@ -119,12 +120,22 @@ def add_offscale_RE(ax, lmax, offset=0.1, **kwargs):
 
     # create new axis and set postion
     rect = ax.get_position()
-    rect = (
-        rect.xmin + rect.width / 2,
-        rect.ymin - offset,
-        rect.width / 2,
-        rect.height / 2,
-    )
+
+    if half == True:
+        rect = (
+            rect.xmin + rect.width / 2,
+            rect.ymin - offset,
+            rect.width / 2,
+            rect.height / 2,
+        )
+    else:
+        rect = (
+            rect.xmin,
+            rect.ymin - offset,
+            rect.width,
+            rect.height / 2,
+        )
+
     r_ax = ax.figure.add_axes(rect)
 
     # hide un-needed elements
@@ -135,7 +146,7 @@ def add_offscale_RE(ax, lmax, offset=0.1, **kwargs):
 
     # set axis limits
     # r_ax.set_xlim([0,lmax])
-    ticks = np.arange(0, lmax + 1, 2)
+    ticks = np.arange(0, lmax + 1, 2) if half == True else np.arange(-lmax, lmax + 1, 2)
     plt.xticks(ticks)
 
     # initialize minor ticks
