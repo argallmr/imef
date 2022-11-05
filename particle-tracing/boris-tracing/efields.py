@@ -154,7 +154,7 @@ def vs_potential(coords, gs, kp, sph=False):
     U = -A0 * (rgeo**gs) * np.sin(phi)
 
     # return potential in [kv]
-    return U * 1e-6
+    return -U * 1e-6
 
 
 def vs_efield(coords, gs, kp, sph=False):
