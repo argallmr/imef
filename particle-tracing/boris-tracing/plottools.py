@@ -147,7 +147,7 @@ def add_offscale_RE(ax, lmax, offset=0.1, half=False, **kwargs):
     # set axis limits
     # r_ax.set_xlim([0,lmax])
     ticks = np.arange(0, lmax + 1, 2) if half == True else np.arange(-lmax, lmax + 1, 2)
-    plt.xticks(ticks)
+    plt.xticks(ticks, [abs(i) for i in ticks])
 
     # initialize minor ticks
     r_ax.minorticks_on()
