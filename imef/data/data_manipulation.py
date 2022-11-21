@@ -6,6 +6,7 @@ import scipy.optimize as optimize
 from scipy.stats import binned_statistic, binned_statistic_2d, binned_statistic_dd
 import torch
 import pandas as pd
+import os
 
 # For debugging purposes
 # np.set_printoptions(threshold=np.inf)
@@ -1551,3 +1552,20 @@ def convert_to_polar(data, varname):
                                                               coords={'L': L, 'MLT': MLT})
 
     return imef_data
+
+
+def fix_MLT(fpath_r, fpath_w):
+    with xr.open_dataset(fpath_r) as data:
+        try:
+            if type(data['MLT'].values[0]) == type(np.timedelta64(1, 'ns')):
+                data['MLT'] = data['MLT']/np.timedelta64(1, 'h')
+
+            data.to_netcdf(path=fpath_w)
+
+            data.close()
+            os.remove(fpath_r)
+
+            return fpath_w
+        except:
+            data.to_netcdf(path=fpath_w)
+            return fpath_w

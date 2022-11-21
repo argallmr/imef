@@ -312,6 +312,8 @@ def get_omni_data(t0, t1, dt_out=None):
     B_values = np.vstack((full_omni_data['BX_GSE'], full_omni_data['BY_GSE'], full_omni_data['BZ_GSE'])).T
 
     # Put the values into the new dataset
+    # omni_data['V_OMNI'] = xr.DataArray(V_values, dims=['Time', 'cart'], coords={'Time': omni_data['Time']})
+    # omni_data['B_OMNI'] = xr.DataArray(B_values, dims=['Time', 'cart'], coords={'Time': omni_data['Time']})
     omni_data['V_OMNI'] = xr.DataArray(V_values, dims=['Time', 'V_index'], coords={'Time': omni_data['Time']})
     omni_data['B_OMNI'] = xr.DataArray(B_values, dims=['Time', 'B_index'], coords={'Time': omni_data['Time']})
     omni_data['Sym-H'] = xr.DataArray(full_omni_data['SYM_H'].values, dims=['Time'], coords={'Time': omni_data['Time']})
@@ -542,6 +544,7 @@ def get_edi_data(sc, mode, level, ti, te, binned=False):
 
     edi_data = edi_data.rename({'E_index': 'cart'})
     edi_data['cart'] = ['x', 'y', 'z']
+    edi_data['V_GSE'] = xr.DataArray(edi_data['V_GSE'].values, dims=['time', 'cart'], coords={'time': edi_data['time'].values})
 
     return edi_data
 

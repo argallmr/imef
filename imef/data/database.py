@@ -290,7 +290,8 @@ def multi_interval(sc, mode, level, t0, t1,
         t_end += t_inc
 
     # Combine all of the datasets together
-    ds = xr.merge(data)
+    # DO NOT USE MERGE. It has a massive memory spike that can cause memory errors. concat does not have this problem
+    ds = xr.concat(data, dim='time')
 
     # Fill in some attributes
 
@@ -351,6 +352,8 @@ def multi_interval(sc, mode, level, t0, t1,
     # Write to file
     ds.to_netcdf(path=fpath)
 
+    del ds
+
     # For some reason MLT sometimes gets changed to nanosecond timedelta64 objects in the above .to_netcdf
     # it can be fixed by opening that file, changing it back to hours, and outputting to a file
     # it is MLT for dt_out=5 seconds, it does it for dt_out=10 seconds, but not for dt_out=60 seconds
@@ -360,20 +363,9 @@ def multi_interval(sc, mode, level, t0, t1,
                        t1.strftime('%Y%m%d%H%M%S')))
     fpath2 = (data_dir / fname2).with_suffix('.nc')
 
-    with xr.open_dataset(fpath) as data:
-        try:
-            if type(data['MLT'].values[0]) == type(np.timedelta64(1, 'ns')):
-                data['MLT'] = data['MLT']/np.timedelta64(1, 'h')
+    final_path = dm.fix_MLT(fpath, fpath2)
 
-            data.to_netcdf(path=fpath2)
-
-            data.close()
-            os.remove(fpath)
-
-            return fpath2
-        except:
-            data.to_netcdf(path=fpath2)
-            return fpath2
+    return final_path
 
 
 def one_interval(sc, mode, level, t0, t1, dt_out=None):
@@ -541,37 +533,42 @@ def predict_efield_and_potential(model, time=None, data=None, return_pred = True
         return imef_data, potential
 
 
-def one_index_interval(t0, t1, dt_out=None):
-    '''
-    Download and read data required by the IMEF model to a netCDF file.
-
-    Parameters
-    ----------
-    sc : str
-        Spacecraft identifier (mms1, mms2, mms3, mms4)
-    mode : str
-        Data rate mode (srvy, brst)
-    level : str
-        Data level (l1a, l2)
-    t0, t1 : `datetime.datetime`
-        Start and end times of the data interval to download
-    dt_out : `datetime.timedelta`, default=5s
-        Sampling interval to which the data will be resampled
-
-    Returns
-    -------
-    data : `xarray.Dataset`
-        The requested data.
-    '''
-
+def one_index_interval(t0, t1, dt_out=None, nans=True):
+    # If there is no data in an MMS data file, sample_data comes here to download the index data, and create an empty dataframe with all the variables that would have been recorded
     kp_data = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
     dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
     omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
 
-    return xr.Dataset({'Kp': kp_data,
-                'Dst': dst_data,
-                'Sym-H': omni_data['Sym-H'],
-                'AE': omni_data['AE'],
-                'AL': omni_data['AL'],
-                'AU': omni_data['AU'],
-                'IEF': omni_data['IEF']})
+    if nans==False:
+        return xr.Dataset({'Kp': kp_data,
+                    'Dst': dst_data,
+                    'Sym-H': omni_data['Sym-H'],
+                    'AE': omni_data['AE'],
+                    'AL': omni_data['AL'],
+                    'AU': omni_data['AU'],
+                    'IEF': omni_data['IEF']})
+
+    else:
+        empty_dataframe = xr.Dataset(coords={'time': kp_data['time'], 'B_index': ['Bx', 'By', 'Bz'], 'cart':['x', 'y', 'z']})
+        empty_dataframe['dt_plus'] = np.timedelta64(np.int(5e9), 'ns')
+        empty_dataframe['dt_minus'] = np.timedelta64(np.int(0), 'ns')
+
+        cart_list = ['E_EDI', 'V_drift_GSE', 'E_cor', 'E_sc', 'E_con', 'E_EDP', 'E_DIS', 'E_DES', 'R_sc', 'V_sc']
+        for variable in cart_list:
+            empty_dataframe[variable] = xr.DataArray(np.full((len(kp_data['time']), 3), np.nan), dims=['time', 'cart'], coords={'time': kp_data['time']})
+
+        not_cart_list = ['Scpot', 'L', 'MLT', 'MLAT']
+        for variable_2 in not_cart_list:
+            empty_dataframe[variable_2] = xr.DataArray(np.full((len(kp_data['time']), 3), np.nan), dims=['time', 'cart'], coords={'time': kp_data['time']})
+
+        empty_dataframe['B_GSE'] = xr.DataArray(np.full((len(kp_data['time']), 4), np.nan), dims=['time', 'b_index'], coords={'time': kp_data['time']})
+
+        index_data = xr.Dataset({'Kp': kp_data,
+                    'Dst': dst_data,
+                    'Sym-H': omni_data['Sym-H'],
+                    'AE': omni_data['AE'],
+                    'AL': omni_data['AL'],
+                    'AU': omni_data['AU'],
+                    'IEF': omni_data['IEF']})
+
+        return xr.merge((empty_dataframe, index_data))
