@@ -1,4 +1,4 @@
-import geopack
+from geopack import geopack
 import numpy as np
 import json
 from os.path import exists

@@ -2,7 +2,7 @@ from geopack import geopack
 import xarray as xr
 import argparse
 import numpy as np
-from tracing_tools import get_g_params, setup_fig
+from tracing_tools import get_g_params, setup_fig, predict_b_gsm
 import hapgood as hg
 import matplotlib.pyplot as plt
 
@@ -22,24 +22,28 @@ def main():
     # EXAMPLES FOR NOW. GET REPLACED FOR FULL IMPLEMENTATION
     example_point_gse = np.array((data['L'].values[37], data['MLT'].values[37], data['MLAT'].values[37]))
     example_time = data['time'].values[37]
-    example_point_gsm = np.array([10, 10, 10])
+    example_point_gsm = np.array([7, 7, 7])
     example_v_drift = data['V_drift_GSE'].values[37]
+    example_efield = data['E_EDI'].values[37]
     # END EXAMPLES
 
     # part 2
     location_gse = example_point_gse
     time = example_time
+    efield = example_efield
 
     # convert gse to gsm coords here!
     # location_gsm = hg.gse2gsm(location_gse)
-    location_gsm = example_point_gsm
+    time_s = data['time'].values[37:39]
+    gsm_matrix = hg.gse2gsm(np.array(time_s))[0]
+    location_gsm = gsm_matrix.apply(location_gse)
 
     # part 4
     v_drift = example_v_drift
 
     # part 3
-    # looks like this isn't actually necessary, as all the predicting needed is done in the trace function
-    # b_gsm=predict_b_gsm(time, location_gsm, v_drift)
+    # this is only needed for some setup stuff, geopack uses global variables which makes using it kind of confusing
+    b_gsm=predict_b_gsm(time, location_gsm, v_drift)
 
     # part 5
     # just for reference, it is 5 seconds
@@ -55,15 +59,23 @@ def main():
     location_gse_after = location_gse +v_drift_right_units
 
     # convert gse to gsm, as geopack can only use gsm or gsw
-    # location_gsm_before = hg.gse2gsm(location_gse_before)
-    # location_gsm_after = hg.gse2gsm(location_gse_after)
+    location_gsm_before = gsm_matrix.apply(location_gse_before)
+    location_gsm_after = gsm_matrix.apply(location_gse_after)
     # NOT FOR REAL USE. ONLY UNTIL GSE2GSM WORKS
-    location_gsm_before = location_gse_before
-    location_gsm_after = location_gse_after
+    # location_gsm_before = location_gse_before
+    # location_gsm_after = location_gse_after
 
 
     # part 7
     pm = get_g_params(time)
+
+    # location_before, location, and location_after are each a field line
+
+    print('starting point for field line 0:', location_gsm)
+    print('starting point for field line -1:', location_gsm_before)
+    print('starting point for field line 1:', location_gsm_after)
+
+    # is it because this isn't x/y/z? Because -21 and -45 seem like a lot
 
     # for r(t-dt)
     if location_gsm_before[2] <= 0:
@@ -72,8 +84,7 @@ def main():
                                         parmod=pm, exname='t01', inname='dipole', maxloop=1000)
     else:
         # x, y, z are all the last point in xx0, yy0, and zz0. xx,yy,zz contain every location over the line that is traced
-        x0, y0, z0, xx0, yy0, zz0 = geopack.trace(location_gsm_before[0], location_gsm_before[1],
-                                                  location_gsm_before[2], dir=-1, rlim=31, r0=.99999,
+        x0, y0, z0, xx0, yy0, zz0 = geopack.trace(location_gsm_before[0], location_gsm_before[1], location_gsm_before[2], dir=-1, rlim=31, r0=.99999,
                                                   parmod=pm, exname='t01', inname='dipole', maxloop=1000)
     # for r(t)
     if location_gsm[2] <= 0:
@@ -94,14 +105,25 @@ def main():
         x2, y2, z2, xx2, yy2, zz2 = geopack.trace(location_gsm_after[0], location_gsm_after[1], location_gsm_after[2], dir=-1, rlim=31, r0=.99999,
                                                   parmod=pm, exname='t01', inname='dipole', maxloop=1000)
 
-    # for some reason xx2 and zz2 only have 1 entry. tbd why
+    # This plot only prints out 2 lines, and i'm pretty sure its just because due to the conversions from gse to gsm not working,
+    # I end up with location_gsm_after being at (9.9, 41, -37), which ends up being too far away
+    # I believe using real data from MMS and converting to gsm correctly will fix this
     ax=setup_fig()
     ax.plot(xx0, zz0)
     ax.plot(xx1, zz1)
     ax.plot(xx2, zz2)
+    ax.set_title('Field Line Tracing for line -1 (blue), 0 (orange), and 1 (green?)')
     plt.show()
 
+    # polar cap location is the end point of the tracing (assuming the tracing converged correctly)
+
+    # magnetic equator location is where z=0 (doesn't happen for all tracings, so should probably find one where it does)
+
     # part 8
+    # V=E_x*Δx + E_y*Δy + E_z*Δz
+    # we should do this in gsm, im pretty sure
+    V = efield[0]*np.abs(location_gsm_after[0] - location_gsm_before[0]) + efield[1]*np.abs(location_gsm_after[1] - location_gsm_before[1]) + efield[2]*np.abs(location_gsm_after[2] - location_gsm_before[2])
+    print('Potential:', V)
 
     # part 9
 
