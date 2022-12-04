@@ -105,15 +105,13 @@ def main():
         x2, y2, z2, xx2, yy2, zz2 = geopack.trace(location_gsm_after[0], location_gsm_after[1], location_gsm_after[2], dir=-1, rlim=31, r0=.99999,
                                                   parmod=pm, exname='t01', inname='dipole', maxloop=1000)
 
-    # This plot only prints out 2 lines, and i'm pretty sure its just because due to the conversions from gse to gsm not working,
-    # I end up with location_gsm_after being at (9.9, 41, -37), which ends up being too far away
-    # I believe using real data from MMS and converting to gsm correctly will fix this
-    ax=setup_fig()
-    ax.plot(xx0, zz0)
-    ax.plot(xx1, zz1)
-    ax.plot(xx2, zz2)
-    ax.set_title('Field Line Tracing for line -1 (blue), 0 (orange), and 1 (green?)')
-    plt.show()
+    # example plot, where x is the cartesian x and z is the cartesian z. May be incorrect, but tbd
+    # ax=setup_fig()
+    # ax.plot(xx0, zz0)
+    # ax.plot(xx1, zz1)
+    # ax.plot(xx2, zz2)
+    # ax.set_title('Field Line Tracing for line -1 (blue), 0 (orange), and 1 (green?)')
+    # plt.show()
 
     # polar cap location is the end point of the tracing (assuming the tracing converged correctly)
 
