@@ -114,8 +114,29 @@ def main():
     # plt.show()
 
     # polar cap location is the end point of the tracing (assuming the tracing converged correctly)
+    polar_cap_0 = np.array([x0, y0, z0])
+    polar_cap_1 = np.array([x1, y1, z1])
+    polar_cap_2 = np.array([x2, y2, z2])
+
+    # check if tracing converged correctly
 
     # magnetic equator location is where z=0 (doesn't happen for all tracings, so should probably find one where it does)
+    # do we need the other location parts? probably
+    mag_equator_ind_0 = np.argmin(np.abs(zz0))
+    mag_equator_ind_1 = np.argmin(np.abs(zz1))
+    mag_equator_ind_2 = np.argmin(np.abs(zz2))
+
+    mag_equator_0 = np.array([xx0[mag_equator_ind_0], yy0[mag_equator_ind_0], zz0[mag_equator_ind_0]])
+    mag_equator_1 = np.array([xx1[mag_equator_ind_1], yy1[mag_equator_ind_1], zz1[mag_equator_ind_1]])
+    mag_equator_2 = np.array([xx2[mag_equator_ind_2], yy2[mag_equator_ind_2], zz2[mag_equator_ind_2]])
+
+    # pick a better number than 1, just an example for now
+    if mag_equator_0[2] > 1:
+        print('field line -1 does not cross the magnetic equator')
+    if mag_equator_1[2] > 1:
+        print('field line 0 does not cross the magnetic equator')
+    if mag_equator_2[2] > 1:
+        print('field line 1 does not cross the magnetic equator')
 
     # part 8
     # V=E_x*Δx + E_y*Δy + E_z*Δz
