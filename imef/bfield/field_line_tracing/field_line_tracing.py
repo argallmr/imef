@@ -7,17 +7,9 @@ import hapgood as hg
 import matplotlib.pyplot as plt
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='INSERT'
-    )
+def main(input_filename):
 
-    parser.add_argument('input_filename', type=str,
-                        help='File name(s) of the data created by sample_data.py. Do not include file extension')
-
-    args=parser.parse_args()
-
-    data = xr.open_dataset(args.input_filename+'.nc')
+    data = xr.open_dataset(input_filename+'.nc')
 
     # EXAMPLES FOR NOW. GET REPLACED FOR FULL IMPLEMENTATION
     example_point_gse = np.array((data['L'].values[37], data['MLT'].values[37], data['MLAT'].values[37]))
@@ -150,4 +142,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(
+        description='INSERT'
+    )
+
+    parser.add_argument('input_filename', type=str,
+                        help='File name(s) of the data created by sample_data.py. Do not include file extension')
+
+    args=parser.parse_args()
+    main(args.input_filename)
