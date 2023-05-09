@@ -6,7 +6,6 @@ from plottools import *
 
 
 def mag(vec):
-
     magnitude = np.sqrt(np.dot(vec, vec))
     return magnitude
 
@@ -37,6 +36,7 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw"):
 
     Returns:
         tdat (ndarray): time data in units [s]
+        tdrift (ndarray): drift time in units [s]
         vdat (ndarray): velocity data in units [m/s]
         rdat (ndarray): position data in units [m]
         emag (ndarray): magnitude of total E-field in units [mV/m]
@@ -65,7 +65,6 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw"):
     cross = False
 
     for i in range(0, steps - 1):
-
         r = rdat[i]
         v = vdat[i]
 
@@ -105,16 +104,24 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw"):
         rdat[i + 1] = rnew  # position [m]
         emag[i] = mag(E0 / 1e-3)  # magnitude of total E-field [mV/m]
 
-        # stop when particle leaves RE = 10 from Earth
+        # calculate driftt time when particle leaves L=10
+
+        # find position magnitude
         RE = 6371000
         rmag = np.sqrt(np.dot(rnew, rnew))
 
+        # check if particle(s) crossed L=10
         if rmag >= 10 * RE:
+            # calculate drift time [s]
             if cross == False:
-                tdrift = (i * dt) / 3600
-                tdrift1 = (tf - (i * dt)) / 3600
+                tdrift = i * dt
+                # tdrift1 = (tf - (i * dt)) / 3600
+
+            # stop calculating drift time once cross = True
             else:
                 rdat[i + 1] = np.nan
+
+            # set cross paramter so drift time is not re-calculated
             cross = True
 
     return tdat, tdrift, vdat, rdat, emag
@@ -154,7 +161,6 @@ def boris_backward(tf, dt, r0, v0, m, q, gs, kp):
     vdat[0] = v0  # [m/s]
 
     for i in range(0, steps - 1):
-
         r = rdat[i]
         v = vdat[i]
 

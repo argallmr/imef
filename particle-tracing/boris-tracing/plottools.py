@@ -7,7 +7,6 @@ from matplotlib.patches import Circle
 from matplotlib.patches import Wedge
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-
 from boris import *
 
 # colorscales for color consistency
