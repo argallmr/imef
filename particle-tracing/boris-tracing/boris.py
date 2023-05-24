@@ -68,9 +68,9 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", sph=False):
     """
     # calculate stepsize (dt) to be no bigger than half the gyroperiod
     gyroperiod = 1 / ((abs(q) * mag(B_dipole(r0))) / m)
-    dt = 0.5 * gyroperiod  # round(0.5 * gyroperiod, 2)
+    dt = 0.01  # 0.5 * gyroperiod  # round(0.5 * gyroperiod, 2)
     # print("tf,dt, r0, q, m", gyroperiod)
-    steps = int(tf / dt)
+    steps = 6000  # int(tf / dt)
     print(steps)
 
     # old
@@ -111,9 +111,12 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", sph=False):
         v = vdat[i]
 
         # compute B-field [T]
-        B0 = B_dipole(r)
+        B0 = B_dipole(r, sph=True)
         # test function: no B-field
         # B0 = np.array([0.0, 0.0, 0.0])
+
+        # print("r0, v0", r, v)
+        # print("B", B0)
 
         # compute convection E-field [mV/m]
         EC = vs_efield(r, gs, kp, sph=True)
@@ -143,7 +146,7 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", sph=False):
         rnew = r + (n * (vnew * dt))
 
         # append to data arrays
-        tdat[i] = i * dt if n == 1.0 else tf - i * dt  # time [s]
+        tdat[i] = i * dt  # if n == 1.0 else tf - i * dt  # time [s]
         vdat[i + 1] = vnew  # velcoity [m/s]
         rdat[i + 1] = rnew  # position [m]
         emag[i] = mag(E0 / 1e-3)  # magnitude of total E-field [mV/m]
@@ -153,14 +156,17 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", sph=False):
         # find positional magnitude
         RE = 6371000
         rmag = np.sqrt(np.dot(rnew, rnew))
-
+        # """
         # check if particle(s) crossed rmax
-        rmax = 11
+        rmax = 50 * RE
         if rmag >= rmax:
             tdrift = (i + 1) * dt
             break
         else:
             tdrift = np.nan
+    # """
+
+    # tdrift = 1.0
 
     return tdat, tdrift, vdat, rdat, emag
 
