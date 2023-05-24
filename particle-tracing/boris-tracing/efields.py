@@ -9,6 +9,42 @@ def crt_to_sph(x, y, z):
     return r, theta, phi
 
 
+"""
+Calculate last closed equipotential (LCE)
+
+From Matsui et al.:
+In order to calculate such contours, we first search for maximum potential 
+in the radial direction at a fixed MLT value, and then get the minimum of 
+these maximum potentials in the whole MLT range.
+"""
+
+
+def get_LCE(phidat, udat, pgrid, dr):
+    # list to hold maximum potential at every MLT
+    umax = []
+
+    # find all coordinate locations at a fixed phi/MLT value, phi[N]
+    for i in range(0, dr):
+        phi_loc = np.where(phidat == pgrid[i])
+
+        uvals = []
+
+        for j in range(0, dr):
+            # find locations where phi[N] exists
+            c1 = phi_loc[0][j]
+            c2 = phi_loc[1][j]
+
+            # find all potential values at phi[N]
+            uvals.append(udat[c1][c2])
+
+        # find maximum potential
+        umax.append(max(uvals))
+
+    # compute minimum of max potentials in the whole MLT range
+    LCE = min(umax)
+    return LCE
+
+
 """ 
 corotation fields
 """
@@ -51,7 +87,8 @@ def corotation_efield(coords, sph=False):
     ER0 = ER0 * 1000
 
     # return array [mV/m]
-    ER = np.array([ER0, 0.0, 0.0])
+    # 5/24/23 - changed sign from (+) to (-)
+    ER = -1.0 * np.array([ER0, 0.0, 0.0])
     return ER
 
 
@@ -85,7 +122,8 @@ def corotation_potential(coords, sph=False):
     RE = 6371000
 
     # calculate potential [V]
-    UR = -(omega * RE**3 * BE) / rgeo if rgeo != 0 else np.nan
+    # 5/24/23 - changed sign from (-) to (+)
+    UR = (omega * RE**3 * BE) / rgeo if rgeo != 0 else np.nan
 
     # return in units [kV]
     return UR * 1e-3
@@ -151,6 +189,7 @@ def vs_potential(coords, gs, kp, sph=False):
     A0 = convection_field_A0(kp)
 
     # VS potential [mV]
+    # 5/24/23 - might need to fix, add -92.4 component
     U = -A0 * (rgeo**gs) * np.sin(phi)
 
     # return potential in [kv]
@@ -186,7 +225,9 @@ def vs_efield(coords, gs, kp, sph=False):
     A0 = convection_field_A0(kp)
 
     # radial componenet [mV/m]
-    EC0 = A0 * gs * (rgeo ** (gs - 1)) * (np.sin(phi))
+    EC0 = (-92.4 / rgeo**2) - (A0 * gs * (rgeo ** (gs - 1)) * (np.sin(phi)))
+
+    ## ! one more term
 
     # polar component [mV/m]
     EC1 = 0.0
