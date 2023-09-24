@@ -14,10 +14,11 @@ def mag(vec):
 
 def crt2sph(x_ijk):
     r_ijk = np.zeros_like(x_ijk)
-    r_ijk[:,0] = np.sqrt(np.sum(x_ijk**2, axis=1))
-    r_ijk[:,1] = np.arccos(x_ijk[:,2] / r_ijk[:,0])
-    r_ijk[:,2] = np.arctan2(x_ijk[:,1], x_ijk[:,0])
+    r_ijk[:, 0] = np.sqrt(np.sum(x_ijk**2, axis=1))
+    r_ijk[:, 1] = np.arccos(x_ijk[:, 2] / r_ijk[:, 0])
+    r_ijk[:, 2] = np.arctan2(x_ijk[:, 1], x_ijk[:, 0])
     return r_ijk
+
 
 # convert cartesian to spherical coordinates
 def crt_to_sph(x, y, z):
@@ -33,12 +34,14 @@ def crt_to_sph(x, y, z):
 
     return r, theta, phi
 
+
 def sph2cart(r_ijk):
     x_ijk = np.zeros_like(r_ijk)
-    x_ijk[:,0] = r_ijk[:,0] * np.sin(r_ijk[:,1]) * np.cos(r_ijk[:,2])
-    x_ijk[:,1] = r_ijk[:,0] * np.sin(r_ijk[:,1]) * np.sin(r_ijk[:,2])
-    x_ijk[:,2] = r_ijk[:,0] * np.cos(r_ijk[:,1])
+    x_ijk[:, 0] = r_ijk[:, 0] * np.sin(r_ijk[:, 1]) * np.cos(r_ijk[:, 2])
+    x_ijk[:, 1] = r_ijk[:, 0] * np.sin(r_ijk[:, 1]) * np.sin(r_ijk[:, 2])
+    x_ijk[:, 2] = r_ijk[:, 0] * np.cos(r_ijk[:, 1])
     return x_ijk
+
 
 # convert spherical to cartesian coordinates
 def sph_to_crt(r, theta, phi):
@@ -63,7 +66,7 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
         tf (int): total time in units [s]
         dt (int): timestep incrementation
         r0 (ndarray): initial position array in units [RE]
-        v0 (ndarray): initial velcoity array in units [m/s]
+        v0 (ndarray): initial velocity array in units [m/s]
         m (float): particle mass in units [kg]
         q (float): particle charge in units [C]
         gs (float): shielding constant
@@ -80,16 +83,15 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
         emag (ndarray): magnitude of total E-field in units [mV/m]
     """
     RE = 6371000
-    
+
     # calculate stepsize (dt) to be no bigger than half the gyroperiod
-    gyroperiod = (2*np.pi) / ((abs(q) * mag(B_dipole(r0*RE))) / m)
+    gyroperiod = (2 * np.pi) / ((abs(q) * mag(B_dipole(r0 * RE))) / m)
     dt = dt_wci * gyroperiod  # round(0.5 * gyroperiod, 2)
     # print("tf,dt, r0, q, m", gyroperiod)
     steps = int(tf / dt)
     nout = steps // dn_save
 
-    print('Run time: {0}, Time step: {1}, Steps: {2}'
-          .format(tf, dt, steps))
+    print("Run time: {0}, Time step: {1}, Steps: {2}".format(tf, dt, steps))
 
     # old
     tdat = np.zeros((nout,))
@@ -107,7 +109,7 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
     tdat[0] = 0
     rdat[0] = r0  # [RE]
     vdat[0] = v0  # [RE/s]
-    isave = 1     # We have already saved the first data point at t=0
+    isave = 1  # We have already saved the first data point at t=0
     rnew = r0
     vnew = v0
 
@@ -121,11 +123,11 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
         # print('{0} of {1}; Saving {2} of {3}'.format(i, steps, int(i // dn_save), nout))
 
         # set current position and velocity (cartesian coords)
-        r = rnew # rdat[i]
-        v = vnew # vdat[i]
+        r = rnew  # rdat[i]
+        v = vnew  # vdat[i]
 
         # compute B-field [T]
-        B0 = B_dipole(r*RE, sph=False)
+        B0 = B_dipole(r * RE, sph=False)
         # test function: no B-field
         # B0 = np.array([0.0, 0.0, 0.0])
 
@@ -161,9 +163,9 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
 
         # Append to data arrays
         #   - Iteration i creates data for i+1
-        if ((i+1) % dn_save) == 0:
+        if ((i + 1) % dn_save) == 0:
             # print('Saving {0} of {1}'.format(i // dn_save, nout))
-            tdat[isave] = (i+1) * dt  # if n == 1.0 else tf - i * dt  # time [s]
+            tdat[isave] = (i + 1) * dt  # if n == 1.0 else tf - i * dt  # time [s]
             vdat[isave] = vnew  # velcoity [m/s]
             rdat[isave] = rnew  # position [RE]
             emag[isave] = mag(E0 / 1e-3)  # magnitude of total E-field [mV/m]
@@ -185,9 +187,9 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
     # Trim the data if rmag > rmax
     if isave < nout:
         tdat = tdat[:isave]
-        rdat = tdat[:isave,:]
-        vdat = tdat[:isave,:]
-        edat = tdat[:isave,:]
+        rdat = tdat[:isave, :]
+        vdat = tdat[:isave, :]
+        edat = tdat[:isave, :]
 
     # tdrift = 1.0
 
