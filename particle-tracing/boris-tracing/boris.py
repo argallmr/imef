@@ -58,7 +58,7 @@ def sph_to_crt(r, theta, phi):
     return x, y, z
 
 
-def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
+def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1):
     """
     Boris particle pusher tracing code.
 
@@ -82,23 +82,22 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
         rdat (ndarray): position data (spherical) in units [m]
         emag (ndarray): magnitude of total E-field in units [mV/m]
     """
-    RE = 6371000
+
+    RE = 6371000  # radius of earth [m]
 
     # calculate stepsize (dt) to be no bigger than half the gyroperiod
     gyroperiod = (2 * np.pi) / ((abs(q) * mag(B_dipole(r0 * RE))) / m)
-    dt = dt_wci * gyroperiod  # round(0.5 * gyroperiod, 2)
-    # print("tf,dt, r0, q, m", gyroperiod)
+    dt_wci = 0.01  # (?)
+    dt = dt_wci * gyroperiod
     steps = int(tf / dt)
-    nout = steps // dn_save
+    nout = steps // dn_save  # (? what is this)
 
     print("Run time: {0}, Time step: {1}, Steps: {2}".format(tf, dt, steps))
 
-    # old
     tdat = np.zeros((nout,))
     rdat = np.zeros((nout, 3)) * np.nan
     vdat = np.zeros((nout, 3))
-    emag = np.zeros((nout,))  # * np.nan
-    # print("tdat =", tdat[1])
+    emag = np.zeros((nout,))
 
     # tdat = np.array([np.nan] * steps - 1)
     # rdat = np.array(([np.nan] * steps), 3)
@@ -109,9 +108,10 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
     tdat[0] = 0
     rdat[0] = r0  # [RE]
     vdat[0] = v0  # [RE/s]
-    isave = 1  # We have already saved the first data point at t=0
     rnew = r0
     vnew = v0
+
+    isave = 1  # We have already saved the first data point at t=0
 
     # forward vs. backward tracing
     if tdir == "fw":
@@ -161,8 +161,8 @@ def boris(tf, r0, v0, m, q, gs, kp, tdir="fw", rmax=10, dn_save=1, dt_wci=0.01):
         # update position [RE]
         rnew = r + (n * (vnew * dt) / RE)
 
-        # Append to data arrays
-        #   - Iteration i creates data for i+1
+        # append to data arrays
+        #   - iteration i creates data for i+1
         if ((i + 1) % dn_save) == 0:
             # print('Saving {0} of {1}'.format(i // dn_save, nout))
             tdat[isave] = (i + 1) * dt  # if n == 1.0 else tf - i * dt  # time [s]

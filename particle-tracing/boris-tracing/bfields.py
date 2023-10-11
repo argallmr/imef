@@ -7,7 +7,7 @@ def B_dipole(coords, sph=False):
     Compute Earth's dipole magnetic field at given cartesian coordinates.
 
     Args:
-        coords (list): array of cartesian coordinates (x, y, z) in units [m]
+        coords (list): array of cartesian coordinates (x, y, z) in units [RE]
         sph (bool, optional):  deterimes if input coordinates are in cartesian (False) or spherical (True); Defaults to False.
 
     Returns:
