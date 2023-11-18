@@ -4,7 +4,6 @@ import datetime as dt
 from warnings import warn
 import scipy.optimize as optimize
 from scipy.stats import binned_statistic, binned_statistic_2d, binned_statistic_dd
-import torch
 import pandas as pd
 import os
 

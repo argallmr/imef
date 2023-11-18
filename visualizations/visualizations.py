@@ -485,7 +485,7 @@ def plot_global_counts_kp(ds, varname='E_EDI_corot'):
 
 def plot_global_counts_one(counts, axes=None):
     if axes is None:
-        fix, axes = plt.subplots(nrows=1, ncols=1, squeeze=False,
+        fig, axes = plt.subplots(nrows=1, ncols=1, squeeze=False,
                                  subplot_kw=dict(projection='polar'))
         ax = axes[0, 0]
     else:

@@ -2,13 +2,12 @@ import datetime as dt
 import xarray as xr
 import numpy as np
 from scipy.stats import binned_statistic_2d
-import torch
 from pathlib import Path
 from warnings import warn
 import os
 
-import imef.data.download_data as dd
-import imef.data.data_manipulation as dm
+import download_data as dd
+import data_manipulation as dm
 
 from pymms.data.util import NoVariablesInFileError
 
@@ -216,7 +215,7 @@ def combine_intervals(files):
     return fname
 
 
-def multi_interval(sc, mode, level, t0, t1,
+def multi_interval(sc, instr, mode, level, t0, t1,
                    dt_out=dt.timedelta(seconds=5)):
     '''
     Save data required by the IMEF model to a netCDF file.
@@ -229,6 +228,8 @@ def multi_interval(sc, mode, level, t0, t1,
     ----------
     sc : str
         Spacecraft identifier (mms1, mms2, mms3, mms4)
+    instr : str
+        Instrument. A value of "all" loads data from all instruments.
     mode : str
         Data rate mode (srvy, brst)
     level : str
@@ -272,7 +273,7 @@ def multi_interval(sc, mode, level, t0, t1,
 
         # Download one day
         try:
-            data.append(one_interval(sc, mode, level, t_start, t_end, dt_out=dt_out))
+            data.append(one_interval(sc, instr, mode, level, t_start, t_end, dt_out=dt_out))
         except NoVariablesInFileError:
             # If there is no data in the mms files, get the index data. merging will result in nan being placed automatically in the missing edi points
             data.append(one_index_interval(t_start, t_end, dt_out=dt_out))
@@ -368,7 +369,7 @@ def multi_interval(sc, mode, level, t0, t1,
     return final_path
 
 
-def one_interval(sc, mode, level, t0, t1, dt_out=None):
+def one_interval(sc, instr, mode, level, t0, t1, dt_out=None):
     '''
     Download and read data required by the IMEF model to a netCDF file.
 
@@ -390,57 +391,80 @@ def one_interval(sc, mode, level, t0, t1, dt_out=None):
     data : `xarray.Dataset`
         The requested data.
     '''
+    data = xr.Dataset()
+    
+    # Need to get FGM data to caluclate VxB electric field for DIS and DES
+    # Need FGM to calculate the spacecraft electric field
+    # Need FGM to calculate the convective electric field from EDI
+    if instr in ('all', 'fgm', 'mec' 'dis', 'des', 'edi'):
+        fgm_data = dd.get_data(sc, 'fgm', mode, level, t0, t1, dt_out=dt_out)
+        data['B_GSE'] = fgm_data['B_GSE']
+    
+    # Need MEC to calculate the convective electric field from EDI
+    elif instr in ('all', 'mec', 'edi'):
+        mec_data = dd.get_data(sc, 'mec', mode, level, t0, t1, dt_out=dt_out)
+        data['R_sc'] = mec_data['R_sc']
+        data['V_sc'] = mec_data['V_sc']
+        data['L'] = mec_data['L']
+        data['MLT'] = mec_data['MLT']
+        data['MLAT'] = mec_data['MLAT']
+
+        # Get the corotation electric field
+        data['E_cor'] = dm.corotation_electric_field(mec_data['R_sc'])
+
+        # Get the spacecraft electric field
+        data['E_sc'] = dm.E_convection(-mec_data['V_sc'], fgm_data['B_GSE'][:, 0:3])
 
     # Get the primary data products
-    edi_data = dd.get_data(sc, 'edi', mode, level, t0, t1, dt_out=dt_out)
-    fgm_data = dd.get_data(sc, 'fgm', mode, level, t0, t1, dt_out=dt_out)
-    mec_data = dd.get_data(sc, 'mec', mode, level, t0, t1, dt_out=dt_out)
-    dis_data = dd.get_data(sc, 'dis', mode, level, t0, t1, dt_out=dt_out)
-    des_data = dd.get_data(sc, 'des', mode, level, t0, t1, dt_out=dt_out)
-    edp_data = dd.get_data(sc, 'edp', mode, level, t0, t1, dt_out=dt_out)
-    scpot_data = dd.get_data(sc, 'scpot', mode, level, t0, t1, dt_out=dt_out)
-    kp_data = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
-    dst_data = dd.get_dst_data(t0, t1, dt_out=dt_out)
-    omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
-    # orbit_data = dd.get_orbit_number(sc, t0, t1, dt_out=dt_out)
+    elif instr in ('all', 'edi'):
+        edi_data = dd.get_data(sc, 'edi', mode, level, t0, t1, dt_out=dt_out)
+        data['E_EDI'] = edi_data['E_GSE']
+        data['V_drift_GSE'] = edi_data['V_GSE']
 
-    # Get the corotation electric field
-    E_cor = dm.corotation_electric_field(mec_data['R_sc'])
+        # Caluclate the convective electric field
+        data['E_con'] = edi_data['E_GSE'] - data['E_cor'] - data['E_sc']
 
-    # Get the spacecraft electric field
-    E_sc = dm.E_convection(-mec_data['V_sc'], fgm_data['B_GSE'][:, 0:3])
+    elif instr in ('all', 'dis'):
+        dis_data = dd.get_data(sc, 'dis', mode, level, t0, t1, dt_out=dt_out)
 
-    E_con = edi_data['E_GSE'] - E_cor - E_sc
+        # Calculate the plasma convection field
+        E_DIS = dm.E_convection(dis_data['V_DIS'],
+                                fgm_data['B_GSE'][:, 0:3].reindex_like(dis_data['V_DIS']))
 
-    # Calculate the plasma convection field
-    E_DIS = dm.E_convection(dis_data['V_DIS'],
-                            fgm_data['B_GSE'][:, 0:3].reindex_like(dis_data['V_DIS']))
-    E_DES = dm.E_convection(des_data['V_DES'],
-                            fgm_data['B_GSE'][:, 0:3].reindex_like(des_data['V_DES']))
+        data['E_DIS'] = E_DIS
+
+    elif instr in ('all', 'des'):
+        des_data = dd.get_data(sc, 'des', mode, level, t0, t1, dt_out=dt_out)
+
+        # Calculate the plasma convection field
+        E_DES = dm.E_convection(des_data['V_DES'],
+                                fgm_data['B_GSE'][:, 0:3].reindex_like(des_data['V_DES']))
+
+        data['E_DES'] = E_DES
+    
+    elif instr in ('all', 'edp'):
+        edp_data = dd.get_data(sc, 'edp', mode, level, t0, t1, dt_out=dt_out)
+        data['E_EDP'] = edp_data['E_GSE']
+
+    elif instr in ('all', 'scpot'):
+        data['SCPOT'] = dd.get_data(sc, 'scpot', mode, level, t0, t1, dt_out=dt_out)
+    
+    elif instr in ('all', 'kp'):
+        data['Kp'] = dd.get_kp_data_v2(t0, t1, dt_out=dt_out)
+
+    elif instr in ('all', 'dst'):
+        data['Dst'] = dd.get_dst_data(t0, t1, dt_out=dt_out)
+
+    elif instr in ('all', 'omni'):
+        omni_data = dd.get_omni_data(t0, t1, dt_out=dt_out)
+        data['Sym-H'] = omni_data['Sym-H']
+        data['AE'] = omni_data['AE']
+        data['AL'] = omni_data['AL']
+        data['AU'] = omni_data['AU']
+        data['IEF'] = omni_data['IEF']
 
     # Create a dataset
-    return xr.Dataset({'E_EDI': edi_data['E_GSE'],
-                       'V_drift_GSE': edi_data['V_GSE'],
-                       'B_GSE': fgm_data['B_GSE'],
-                       'E_cor': E_cor,
-                       'E_sc': E_sc,
-                       'E_con': E_con,
-                       'E_DIS': E_DIS,
-                       'E_DES': E_DES,
-                       'E_EDP': edp_data['E_GSE'],
-                       'Kp': kp_data,
-                       'Dst': dst_data,
-                       'Sym-H': omni_data['Sym-H'],
-                       'AE': omni_data['AE'],
-                       'AL': omni_data['AL'],
-                       'AU': omni_data['AU'],
-                       'IEF': omni_data['IEF'],
-                       'Scpot': scpot_data,
-                       'R_sc': mec_data['R_sc'],
-                       'V_sc': mec_data['V_sc'],
-                       'L': mec_data['L'],
-                       'MLT': mec_data['MLT'],
-                       'MLAT': mec_data['MLAT']})
+    return data
 
 
 def predict_efield_and_potential(model, time=None, data=None, return_pred = True, values_to_use=['Kp']):
