@@ -6,8 +6,8 @@ from pathlib import Path
 from warnings import warn
 import os
 
-import download_data as dd
-import data_manipulation as dm
+from imef.data import download_data as dd
+from imef.data import data_manipulation as dm
 
 from pymms.data.util import NoVariablesInFileError
 

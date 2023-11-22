@@ -14,7 +14,7 @@ from pymms.data import edi, util, fgm, fpi, edp
 from pymms.sdc import mrmms_sdc_api as mms_api
 
 # Kp and DSCOVR data
-import util as dd_util
+from imef.data import util as dd_util
 
 np.set_printoptions(threshold=np.inf)
 
@@ -261,9 +261,9 @@ def get_scpot_data(sc, level, t0, t1):
     # Adjust the time stamps
     #   - dt_minus needs to be assigned because both
     #     dt_plus and dt_minus are views of dt_edp
-    Vsc = Vsc.assign_coords({'time': Vsc['time'] - dt_scpot,
-                             'dt_plus': ('time', 2 * dt_scpot),
-                             'dt_minus': ('time', 0 * dt_scpot)})
+    Vsc = Vsc.assign_coords({'time': Vsc['time'].data - dt_scpot.data,
+                             'dt_plus': ('time', 2 * dt_scpot.data),
+                             'dt_minus': ('time', 0 * dt_scpot.data)})
 
     return Vsc
 
